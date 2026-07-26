@@ -6,6 +6,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import {
   CATEGORY_STYLES,
   getCalendarEventTime,
+  type CalendarCategory,
   type CalendarEvent,
   type CalendarFeed,
   type CalendarGridCell,
@@ -44,6 +45,90 @@ function formatDayHeading(dateKey: string) {
     month: "long",
     day: "numeric",
   }).format(new Date(`${dateKey}T12:00:00.000Z`));
+}
+
+function addDaysToDateKey(dateKey: string, days: number) {
+  const [year, month, day] = dateKey.split("-").map((value) => Number.parseInt(value, 10));
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function escapeIcsText(value: string) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function formatIcsUtc(value: string) {
+  return new Date(value).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function formatIcsDate(dateKey: string) {
+  return dateKey.replace(/-/g, "");
+}
+
+function getEventDownloadName(event: CalendarEvent) {
+  const normalizedTitle = event.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "calendar-event";
+
+  return `${normalizedTitle}-${event.startDayKey}.ics`;
+}
+
+function buildEventIcs(event: CalendarEvent) {
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Custom Google Calendar//EN",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${escapeIcsText(event.id)}`,
+    `DTSTAMP:${formatIcsUtc(new Date().toISOString())}`,
+    `SUMMARY:${escapeIcsText(event.title)}`,
+  ];
+
+  if (event.allDay) {
+    lines.push(`DTSTART;VALUE=DATE:${formatIcsDate(event.startDayKey)}`);
+    lines.push(`DTEND;VALUE=DATE:${formatIcsDate(addDaysToDateKey(event.endDayKey, 1))}`);
+  } else {
+    lines.push(`DTSTART:${formatIcsUtc(event.startsAt)}`);
+    lines.push(`DTEND:${formatIcsUtc(event.endsAt)}`);
+  }
+
+  if (event.location) {
+    lines.push(`LOCATION:${escapeIcsText(event.location)}`);
+  }
+
+  if (event.description) {
+    lines.push(`DESCRIPTION:${escapeIcsText(normalizeDescription(event.description))}`);
+  }
+
+  if (event.link) {
+    lines.push(`URL:${escapeIcsText(event.link)}`);
+  }
+
+  lines.push("END:VEVENT", "END:VCALENDAR");
+
+  return `${lines.join("\r\n")}\r\n`;
+}
+
+function getEventDownloadHref(event: CalendarEvent) {
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(buildEventIcs(event))}`;
+}
+
+function cellMatchesCategory(cell: CalendarGridCell, category: CalendarCategory | null) {
+  if (!category) return true;
+  return cell.events.some((event) => event.category === category);
+}
+
+function eventMatchesCategory(event: CalendarEvent, category: CalendarCategory | null) {
+  if (!category) return true;
+  return event.category === category;
 }
 
 function getTileSubtitle(cell: CalendarGridCell, timeZone: string) {
@@ -125,6 +210,7 @@ function getTileFill(cell: CalendarGridCell) {
 
 export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CalendarCategory | null>(null);
   const categories = Array.from(new Set(feed.events.map((event) => event.category)));
   const columnCount = String(feed.month.columns.length);
   const cells = feed.month.weeks.flatMap((week) => week.cells);
@@ -158,6 +244,33 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
         className={`calendar-shell ${embedded ? "embedded" : "preview"}`}
         style={{ ["--calendar-columns" as string]: columnCount }}
       >
+        <div className="legend-strip calendar-key" aria-label="Event categories">
+          {categories.map((category) => (
+            <button
+              aria-label={`Toggle ${CATEGORY_STYLES[category].label} filter`}
+              aria-pressed={selectedCategory === category}
+              className={`legend-pill ${
+                selectedCategory === category
+                  ? "is-active"
+                  : selectedCategory
+                    ? "is-dimmed"
+                    : ""
+              }`}
+              key={category}
+              onClick={() => {
+                setSelectedCategory((current) => (current === category ? null : category));
+              }}
+              type="button"
+            >
+              <span
+                className="legend-dot"
+                style={{ ["--legend-color" as string]: CATEGORY_STYLES[category].color }}
+              />
+              {CATEGORY_STYLES[category].label}
+            </button>
+          ))}
+        </div>
+
         <header className="calendar-banner">
           <div className="calendar-toolbar">
             <Link
@@ -198,12 +311,17 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                 const theme = primaryEvent
                   ? CATEGORY_STYLES[primaryEvent.category]
                   : CATEGORY_STYLES.other;
+                const matchesSelectedCategory = cellMatchesCategory(cell, selectedCategory);
                 const isTimedSingleEvent = Boolean(
                   primaryEvent && !primaryEvent.isClosed && !primaryEvent.allDay && cell.events.length === 1,
                 );
 
                 return (
-                  <article className={getCellClassName(cell)} key={cell.key} style={getCellStyle(cell)}>
+                  <article
+                    className={`${getCellClassName(cell)}${matchesSelectedCategory ? "" : " is-dimmed"}`}
+                    key={cell.key}
+                    style={getCellStyle(cell)}
+                  >
                     <button
                       aria-haspopup="dialog"
                       className="tile-button"
@@ -254,20 +372,6 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
             </div>
           ))}
         </div>
-
-        <footer className="calendar-footer">
-          <div className="legend-strip">
-            {categories.map((category) => (
-              <span className="legend-pill" key={category}>
-                <span
-                  className="legend-dot"
-                  style={{ ["--legend-color" as string]: CATEGORY_STYLES[category].color }}
-                />
-                {CATEGORY_STYLES[category].label}
-              </span>
-            ))}
-          </div>
-        </footer>
       </section>
 
       {selectedCell ? (
@@ -307,15 +411,29 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                 {selectedCell.events.map((event) => {
                   const theme = CATEGORY_STYLES[event.category];
                   const eventTime = getCalendarEventTime(event, feed.timeZone);
+                  const downloadHref = getEventDownloadHref(event);
+                  const matchesSelectedCategory = eventMatchesCategory(event, selectedCategory);
 
                   return (
                     <article
-                      className="day-modal-event"
+                      className={`day-modal-event${matchesSelectedCategory ? "" : " is-dimmed"}`}
                       key={event.id}
                       style={{ ["--modal-accent" as string]: theme.color }}
                     >
                       <div className="day-modal-event-top">
                         <span className="day-modal-category">{theme.label}</span>
+
+                        <a
+                          aria-label={`Download ${event.title} as iCal`}
+                          className="day-modal-download"
+                          download={getEventDownloadName(event)}
+                          href={downloadHref}
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 3.99a1 1 0 0 1-1.4 0l-4-3.99a1 1 0 0 1 1.4-1.41L11 12.59V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
+                          </svg>
+                          <span>iCal</span>
+                        </a>
                       </div>
 
                       <h3>{event.title}</h3>

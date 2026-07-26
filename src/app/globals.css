@@ -17,8 +17,8 @@
   --lorcana-accent: #d8c6ff;
   --one-piece: #2f3193;
   --one-piece-accent: #c8cbff;
-  --gundam: #2f67ff;
-  --gundam-accent: #d8e3ff;
+  --gundam: #2c9f63;
+  --gundam-accent: #c9f0d9;
   --marvel: #8e4c18;
   --marvel-accent: #f2d0ab;
   --riftbound: #ff970f;
@@ -104,6 +104,11 @@ a {
 
 .calendar-banner {
   padding-bottom: 0.8rem;
+}
+
+.calendar-key {
+  justify-content: center;
+  margin-bottom: 1.35rem;
 }
 
 .calendar-toolbar {
@@ -240,6 +245,11 @@ a {
 
 .calendar-cell.is-spillover {
   opacity: 0.8;
+}
+
+.calendar-cell.is-dimmed {
+  opacity: 0.28;
+  transform: scale(0.985);
 }
 
 .calendar-cell.is-empty::after {
@@ -483,6 +493,10 @@ a {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--modal-accent) 22%, transparent);
 }
 
+.day-modal-event.is-dimmed {
+  opacity: 0.34;
+}
+
 .day-modal-event-top,
 .day-modal-meta,
 .legend-strip,
@@ -491,6 +505,10 @@ a {
   gap: 0.65rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.day-modal-event-top {
+  justify-content: space-between;
 }
 
 .day-modal-category {
@@ -502,6 +520,33 @@ a {
   color: var(--soft-white);
   font-size: 1.85rem;
   line-height: 1;
+}
+
+.day-modal-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--modal-accent) 35%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--modal-accent) 18%, rgba(255, 255, 255, 0.05));
+  color: var(--soft-white);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.day-modal-download:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--modal-accent) 60%, rgba(255, 255, 255, 0.2));
+}
+
+.day-modal-download svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: currentColor;
 }
 
 .day-modal-event p {
@@ -526,6 +571,22 @@ a {
   color: var(--foreground);
   font-size: 0.8rem;
   font-weight: 700;
+  cursor: pointer;
+  transition: transform 180ms ease, opacity 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.legend-pill:hover {
+  transform: translateY(-1px);
+}
+
+.legend-pill.is-active {
+  border-color: color-mix(in srgb, var(--foreground) 45%, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+}
+
+.legend-pill.is-dimmed {
+  opacity: 0.5;
 }
 
 .legend-dot {

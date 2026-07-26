@@ -221,8 +221,8 @@ export const CATEGORY_STYLES: Record<
   gundam: {
     label: "Gundam",
     shortLabel: "GDM",
-    color: "var(--gundam)",
-    accent: "var(--gundam-accent)",
+    color: "#2c9f63",
+    accent: "#c9f0d9",
   },
   marvel: {
     label: "Marvel",
