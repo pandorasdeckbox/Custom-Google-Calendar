@@ -137,7 +137,7 @@ function getTileSubtitle(cell: CalendarGridCell, timeZone: string) {
   }
 
   if (cell.primaryEvent.isClosed) {
-    return "Store update";
+    return null;
   }
 
   if (cell.events.length > 1) {
@@ -179,12 +179,24 @@ function formatPercent(value: number) {
   return `${value.toFixed(3).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1")}%`;
 }
 
+function getCellDisplayCategories(cell: CalendarGridCell) {
+  return Array.from(
+    new Set(
+      cell.events.flatMap((event) =>
+        event.displayCategories.length > 0 ? event.displayCategories : [event.category],
+      ),
+    ),
+  );
+}
+
 function getTileFill(cell: CalendarGridCell) {
-  if (cell.events.length <= 1) {
+  const displayCategories = getCellDisplayCategories(cell);
+
+  if (displayCategories.length <= 1) {
     return cell.primaryEvent ? CATEGORY_STYLES[cell.primaryEvent.category].color : CATEGORY_STYLES.other.color;
   }
 
-  const eventColors = cell.events.map((event) => CATEGORY_STYLES[event.category].color);
+  const eventColors = displayCategories.map((category) => CATEGORY_STYLES[category].color);
   const step = 100 / eventColors.length;
   const blendWidth = Math.min(18, step * 0.6);
   const gradientStops: string[] = [`${eventColors[0]} 0%`];
@@ -315,6 +327,7 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                 const isTimedSingleEvent = Boolean(
                   primaryEvent && !primaryEvent.isClosed && !primaryEvent.allDay && cell.events.length === 1,
                 );
+                const tileSubtitle = getTileSubtitle(cell, feed.timeZone);
 
                 return (
                   <article
@@ -347,7 +360,7 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                               : "Next Window"}
                         </span>
 
-                        <h2>
+                        <h2 className={isTimedSingleEvent ? "has-prominent-time" : undefined}>
                           {primaryEvent
                             ? primaryEvent.title
                             : cell.isCurrentMonth
@@ -355,9 +368,27 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                               : "Next Month"}
                         </h2>
 
-                        <p className={isTimedSingleEvent ? "tile-time-subtitle" : undefined}>
-                          {getTileSubtitle(cell, feed.timeZone)}
-                        </p>
+                        {tileSubtitle ? (
+                          <p className={isTimedSingleEvent ? "tile-time-subtitle" : undefined}>
+                            {isTimedSingleEvent ? (
+                              <>
+                                <svg
+                                  aria-hidden="true"
+                                  className="tile-time-icon"
+                                  viewBox="0 0 24 24"
+                                  width="12"
+                                  height="12"
+                                >
+                                  <circle cx="12" cy="12" r="8.5" />
+                                  <path d="M12 7.8v4.7l3.15 2.2" />
+                                </svg>
+                                <span>{tileSubtitle}</span>
+                              </>
+                            ) : (
+                              tileSubtitle
+                            )}
+                          </p>
+                        ) : null}
                       </div>
 
                       {cell.overflowCount > 0 ? (

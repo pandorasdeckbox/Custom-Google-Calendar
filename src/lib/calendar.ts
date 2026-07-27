@@ -62,6 +62,7 @@ export type CalendarEvent = {
   allDay: boolean;
   isClosed: boolean;
   category: CalendarCategory;
+  displayCategories: CalendarCategory[];
   sourceId: string;
   sourceLabel: string;
   link: string;
@@ -136,7 +137,6 @@ const CATEGORY_KEYWORDS: Record<CalendarCategory, string[]> = {
     "standard",
     "pioneer",
     "sealed",
-    "prerelease",
     "pauper",
   ],
   pokemon: ["pokemon", "pkmn", "league challenge", "gym leader"],
@@ -369,19 +369,55 @@ function matchesKeyword(combined: string, keyword: string) {
   return pattern.test(combined);
 }
 
-function inferCategory(...values: string[]): CalendarCategory {
+function inferCategories(...values: string[]) {
   const combined = values.join(" ").toLowerCase();
+  const matches: CalendarCategory[] = [];
 
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS) as [
     CalendarCategory,
     string[],
   ][]) {
+    if (category === "other") continue;
+
     if (keywords.some((keyword) => matchesKeyword(combined, keyword))) {
-      return category;
+      matches.push(category);
     }
   }
 
-  return "other";
+  return matches;
+}
+
+function isGenericOpenPlayTitle(title: string) {
+  return title.trim().toLowerCase() === "open play";
+}
+
+function isMultiGameOpenPlayEvent(...values: string[]) {
+  const combined = values.join(" ").toLowerCase();
+  return /(^|[^a-z0-9])open play(?=$|[^a-z0-9])/.test(combined);
+}
+
+function resolvePrimaryCategory(
+  fallbackCategory: CalendarCategory | undefined,
+  inferredCategories: CalendarCategory[],
+  title: string,
+) {
+  if (isGenericOpenPlayTitle(title)) {
+    return "other";
+  }
+
+  return fallbackCategory || inferredCategories[0] || "other";
+}
+
+function resolveDisplayCategories(category: CalendarCategory, inferredCategories: CalendarCategory[], ...values: string[]) {
+  if (isGenericOpenPlayTitle(values[0] || "")) {
+    return [category];
+  }
+
+  if (!isMultiGameOpenPlayEvent(...values)) {
+    return [category];
+  }
+
+  return Array.from(new Set([category, ...inferredCategories]));
 }
 
 function inferClosed(...values: string[]) {
@@ -541,8 +577,16 @@ function normalizeEvent(
     ? addDays(event.end?.date || startDayKey, -1)
     : formatDateKeyInTimeZone(new Date(endsAt), sourceTimeZone);
 
-  const category =
-    source.category || inferCategory(title, description, location, sourceLabel);
+  const inferredCategories = inferCategories(title, description, location, sourceLabel);
+  const category = resolvePrimaryCategory(source.category, inferredCategories, title);
+  const displayCategories = resolveDisplayCategories(
+    category,
+    inferredCategories,
+    title,
+    description,
+    location,
+    sourceLabel,
+  );
 
   return {
     id: `${source.id}:${event.id}`,
@@ -557,6 +601,7 @@ function normalizeEvent(
     allDay,
     isClosed: inferClosed(title, description, location, sourceLabel),
     category,
+    displayCategories,
     sourceId: source.id,
     sourceLabel,
     link: event.htmlLink || getCalendarUrl(),
@@ -633,23 +678,41 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
     endMinute: number,
     description: string,
     location: string,
-  ): CalendarEvent => ({
-    id: `mock:${id}`,
-    googleEventId: id,
-    title,
-    description,
-    location,
-    startsAt: makeTimedIso(dateKey, startHour, startMinute),
-    endsAt: makeTimedIso(dateKey, endHour, endMinute),
-    startDayKey: dateKey,
-    endDayKey: dateKey,
-    allDay: false,
-    isClosed: false,
-    category,
-    sourceId: `mock-${category}`,
-    sourceLabel: CATEGORY_STYLES[category].label,
-    link: getCalendarUrl(),
-  });
+  ): CalendarEvent => {
+    const inferredCategories = inferCategories(
+      title,
+      description,
+      location,
+      CATEGORY_STYLES[category].label,
+    );
+    const resolvedCategory = resolvePrimaryCategory(category, inferredCategories, title);
+
+    return {
+      id: `mock:${id}`,
+      googleEventId: id,
+      title,
+      description,
+      location,
+      startsAt: makeTimedIso(dateKey, startHour, startMinute),
+      endsAt: makeTimedIso(dateKey, endHour, endMinute),
+      startDayKey: dateKey,
+      endDayKey: dateKey,
+      allDay: false,
+      isClosed: false,
+      category: resolvedCategory,
+      displayCategories: resolveDisplayCategories(
+        resolvedCategory,
+        inferredCategories,
+        title,
+        description,
+        location,
+        CATEGORY_STYLES[category].label,
+      ),
+      sourceId: `mock-${category}`,
+      sourceLabel: CATEGORY_STYLES[category].label,
+      link: getCalendarUrl(),
+    };
+  };
 
   const createAllDayEvent = (
     id: string,
@@ -659,23 +722,41 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
     description: string,
     location: string,
     isClosed = false,
-  ): CalendarEvent => ({
-    id: `mock:${id}`,
-    googleEventId: id,
-    title,
-    description,
-    location,
-    startsAt: `${dateKey}T00:00:00.000Z`,
-    endsAt: `${dateKey}T23:59:59.999Z`,
-    startDayKey: dateKey,
-    endDayKey: dateKey,
-    allDay: true,
-    isClosed,
-    category,
-    sourceId: `mock-${category}`,
-    sourceLabel: CATEGORY_STYLES[category].label,
-    link: getCalendarUrl(),
-  });
+  ): CalendarEvent => {
+    const inferredCategories = inferCategories(
+      title,
+      description,
+      location,
+      CATEGORY_STYLES[category].label,
+    );
+    const resolvedCategory = resolvePrimaryCategory(category, inferredCategories, title);
+
+    return {
+      id: `mock:${id}`,
+      googleEventId: id,
+      title,
+      description,
+      location,
+      startsAt: `${dateKey}T00:00:00.000Z`,
+      endsAt: `${dateKey}T23:59:59.999Z`,
+      startDayKey: dateKey,
+      endDayKey: dateKey,
+      allDay: true,
+      isClosed,
+      category: resolvedCategory,
+      displayCategories: resolveDisplayCategories(
+        resolvedCategory,
+        inferredCategories,
+        title,
+        description,
+        location,
+        CATEGORY_STYLES[category].label,
+      ),
+      sourceId: `mock-${category}`,
+      sourceLabel: CATEGORY_STYLES[category].label,
+      link: getCalendarUrl(),
+    };
+  };
 
   return [
     createTimedEvent(

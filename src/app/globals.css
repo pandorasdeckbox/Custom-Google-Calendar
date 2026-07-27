@@ -238,9 +238,7 @@ a {
 
 .calendar-cell.is-today {
   transform: translateY(-2px);
-  box-shadow:
-    0 22px 56px rgba(0, 0, 0, 0.35),
-    0 0 0 2px color-mix(in srgb, var(--tile-color) 44%, white);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.35);
 }
 
 .calendar-cell.is-spillover {
@@ -264,6 +262,7 @@ a {
 .calendar-cell.is-closed .tile-content h2 {
   color: #c31c13;
   text-shadow: none;
+  font-size: 3rem;
 }
 
 .calendar-cell.is-closed .tile-content p,
@@ -274,7 +273,12 @@ a {
   border-color: rgba(78, 63, 57, 0.22);
 }
 
+.calendar-cell.is-closed .tile-category {
+  background: rgba(248, 246, 242, 0.96);
+}
+
 .tile-button {
+  position: relative;
   width: 100%;
   height: 100%;
   display: grid;
@@ -286,6 +290,36 @@ a {
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.calendar-cell.is-today .tile-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 28px;
+  border: 5px solid rgba(199, 33, 33, 0.24);
+  box-shadow: 0 0 14px rgba(199, 33, 33, 0.12);
+  pointer-events: none;
+  animation: today-border-pulse 2.2s ease-in-out infinite;
+}
+
+.tile-button > * {
+  position: relative;
+  z-index: 3;
+}
+
+@keyframes today-border-pulse {
+  0%,
+  100% {
+    border-color: rgba(199, 33, 33, 0.2);
+    box-shadow: 0 0 12px rgba(199, 33, 33, 0.1);
+  }
+
+  50% {
+    border-color: rgba(199, 33, 33, 0.62);
+    box-shadow: 0 0 28px rgba(199, 33, 33, 0.22);
+  }
 }
 
 .tile-button:focus-visible {
@@ -343,25 +377,52 @@ a {
 }
 
 .tile-content h2 {
-  margin: 0;
-  font-size: clamp(1.28rem, 1.95vw, 2.05rem);
-  line-height: 0.9;
+  margin-top: 0;
+  margin-bottom: 0.4rem;
+  margin-left: 0;
+  margin-right: 0;
+  font-size: clamp(1.08rem, 1.55vw, 1.68rem);
+  line-height: 0.94;
   color: #fffaf2;
   text-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+}
+
+.tile-content h2.has-prominent-time {
+  font-size: clamp(1.18rem, 1.6vw, 1.6rem);
+  line-height: 0.92;
 }
 
 .tile-content p {
   max-width: 15ch;
   margin: 0;
-  font-size: 0.76rem;
+  font-size: 1.1rem;
   color: rgba(255, 247, 239, 0.92);
   line-height: 1.16;
 }
 
 .tile-content p.tile-time-subtitle {
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  font-family: var(--font-month), serif;
+  font-size: clamp(1.4rem, 2.3vw, 2.04rem);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 0.88;
+  color: #fffaf2;
+  white-space: nowrap;
+}
+
+.tile-time-icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  stroke: #fffaf2;
+  stroke-width: 2.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0.96;
 }
 
 .tile-chip,
