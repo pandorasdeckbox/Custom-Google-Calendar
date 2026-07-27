@@ -18,8 +18,14 @@ type CalendarEmbedProps = {
   basePath: string;
 };
 
+type CarouselDirection = "previous" | "next";
+
 function buildMonthHref(basePath: string, monthKey: string) {
   return `${basePath}?month=${monthKey}`;
+}
+
+function getCarouselKey(monthKey: string, dateKey: string) {
+  return `${monthKey}:${dateKey}`;
 }
 
 function normalizeDescription(value: string) {
@@ -131,24 +137,20 @@ function eventMatchesCategory(event: CalendarEvent, category: CalendarCategory |
   return event.category === category;
 }
 
-function getTileSubtitle(cell: CalendarGridCell, timeZone: string) {
-  if (!cell.primaryEvent) {
-    return cell.isCurrentMonth ? "Tap to view the day" : "Calendar spillover";
+function getTileSubtitle(event: CalendarEvent | null, isCurrentMonth: boolean, timeZone: string) {
+  if (!event) {
+    return isCurrentMonth ? "Tap to view the day" : "Calendar spillover";
   }
 
-  if (cell.primaryEvent.isClosed) {
+  if (event.isClosed) {
     return null;
   }
 
-  if (cell.events.length > 1) {
-    return `${cell.events.length} events scheduled`;
-  }
-
-  if (cell.primaryEvent.allDay) {
+  if (event.allDay) {
     return "All day";
   }
 
-  const eventTime = getCalendarEventTime(cell.primaryEvent, timeZone);
+  const eventTime = getCalendarEventTime(event, timeZone);
   return `${eventTime.startsAt}`;
 }
 
@@ -223,6 +225,8 @@ function getTileFill(cell: CalendarGridCell) {
 export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CalendarCategory | null>(null);
+  const [activeEventIndices, setActiveEventIndices] = useState<Record<string, number>>({});
+  const [carouselHintMonthKey, setCarouselHintMonthKey] = useState<string | null>(null);
   const categories = Array.from(new Set(feed.events.map((event) => event.category)));
   const columnCount = String(feed.month.columns.length);
   const cells = feed.month.weeks.flatMap((week) => week.cells);
@@ -230,6 +234,16 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
     selectedDayId?.startsWith(`${feed.month.key}:`)
       ? cells.find((cell) => `${feed.month.key}:${cell.dateKey}` === selectedDayId) || null
       : null;
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setCarouselHintMonthKey(feed.month.key);
+    }, 2000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [feed.month.key]);
 
   useEffect(() => {
     if (!selectedCell) return;
@@ -249,6 +263,32 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [selectedCell]);
+
+  function getActiveEventIndex(cell: CalendarGridCell) {
+    const carouselKey = getCarouselKey(feed.month.key, cell.key);
+    const currentIndex = activeEventIndices[carouselKey] ?? 0;
+    const lastIndex = Math.max(cell.events.length - 1, 0);
+
+    return Math.min(currentIndex, lastIndex);
+  }
+
+  function moveCarousel(cell: CalendarGridCell, direction: CarouselDirection) {
+    const currentIndex = getActiveEventIndex(cell);
+    const nextIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
+    const boundedIndex = Math.max(0, Math.min(nextIndex, cell.events.length - 1));
+
+    if (boundedIndex === currentIndex) {
+      return;
+    }
+
+    const carouselKey = getCarouselKey(feed.month.key, cell.key);
+
+    setCarouselHintMonthKey(null);
+    setActiveEventIndices((current) => ({
+      ...current,
+      [carouselKey]: boundedIndex,
+    }));
+  }
 
   return (
     <>
@@ -319,19 +359,33 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
           {feed.month.weeks.map((week) => (
             <div className="calendar-row" key={week.key}>
               {week.cells.map((cell) => {
-                const primaryEvent = cell.primaryEvent;
-                const theme = primaryEvent
-                  ? CATEGORY_STYLES[primaryEvent.category]
+                const activeEventIndex = getActiveEventIndex(cell);
+                const activeEvent = cell.events[activeEventIndex] ?? cell.primaryEvent;
+                const theme = activeEvent
+                  ? CATEGORY_STYLES[activeEvent.category]
                   : CATEGORY_STYLES.other;
                 const matchesSelectedCategory = cellMatchesCategory(cell, selectedCategory);
-                const isTimedSingleEvent = Boolean(
-                  primaryEvent && !primaryEvent.isClosed && !primaryEvent.allDay && cell.events.length === 1,
-                );
-                const tileSubtitle = getTileSubtitle(cell, feed.timeZone);
+                const hasMultipleEvents = cell.events.length > 1;
+                const canMovePrevious = activeEventIndex > 0;
+                const canMoveNext = activeEventIndex < cell.events.length - 1;
+                const carouselPosition = hasMultipleEvents
+                  ? canMovePrevious
+                    ? canMoveNext
+                      ? "middle"
+                      : "end"
+                    : "start"
+                  : undefined;
+                const showHint =
+                  hasMultipleEvents &&
+                  activeEventIndex === 0 &&
+                  carouselHintMonthKey === feed.month.key;
 
                 return (
                   <article
                     className={`${getCellClassName(cell)}${matchesSelectedCategory ? "" : " is-dimmed"}`}
+                    data-has-carousel={hasMultipleEvents ? "true" : "false"}
+                    data-carousel-position={carouselPosition}
+                    data-show-carousel-hint={showHint ? "true" : "false"}
                     key={cell.key}
                     style={getCellStyle(cell)}
                   >
@@ -346,49 +400,73 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                     >
                       <div className="tile-date-row">
                         <span className="tile-day-number">{cell.dayNumber}</span>
-                        <span className="tile-mark">{primaryEvent ? theme.shortLabel : "OPEN"}</span>
+                        <span className="tile-mark">{activeEvent ? theme.shortLabel : "OPEN"}</span>
                       </div>
 
-                      <div className="tile-content compact-tile-content">
-                        <span className="tile-category compact-category">
-                          {primaryEvent
-                            ? primaryEvent.isClosed
-                              ? "Store Update"
-                              : theme.label
-                            : cell.isCurrentMonth
-                              ? "Open Slot"
-                              : "Next Window"}
-                        </span>
+                      <div className="tile-content tile-carousel-viewport compact-tile-content">
+                        <div
+                          className="tile-carousel-slider"
+                          style={{
+                            ["--tile-carousel-index" as string]: String(activeEventIndex),
+                            ["--tile-carousel-count" as string]: String(Math.max(cell.events.length, 1)),
+                          }}
+                        >
+                          <div className="tile-carousel-track">
+                            {(cell.events.length > 0 ? cell.events : [null]).map((event, index) => {
+                              const eventTheme = event ? CATEGORY_STYLES[event.category] : CATEGORY_STYLES.other;
+                              const eventSubtitle = getTileSubtitle(event, cell.isCurrentMonth, feed.timeZone);
+                              const isTimedEvent = Boolean(event && !event.isClosed && !event.allDay);
 
-                        <h2 className={isTimedSingleEvent ? "has-prominent-time" : undefined}>
-                          {primaryEvent
-                            ? primaryEvent.title
-                            : cell.isCurrentMonth
-                              ? "No Featured Event"
-                              : "Next Month"}
-                        </h2>
-
-                        {tileSubtitle ? (
-                          <p className={isTimedSingleEvent ? "tile-time-subtitle" : undefined}>
-                            {isTimedSingleEvent ? (
-                              <>
-                                <svg
-                                  aria-hidden="true"
-                                  className="tile-time-icon"
-                                  viewBox="0 0 24 24"
-                                  width="12"
-                                  height="12"
+                              return (
+                                <div
+                                  aria-hidden={index === activeEventIndex ? undefined : true}
+                                  className="tile-content tile-carousel-panel"
+                                  key={event?.id ?? `${cell.key}-empty`}
                                 >
-                                  <circle cx="12" cy="12" r="8.5" />
-                                  <path d="M12 7.8v4.7l3.15 2.2" />
-                                </svg>
-                                <span>{tileSubtitle}</span>
-                              </>
-                            ) : (
-                              tileSubtitle
-                            )}
-                          </p>
-                        ) : null}
+                                  <span className="tile-category compact-category">
+                                    {event
+                                      ? event.isClosed
+                                        ? "Store Update"
+                                        : eventTheme.label
+                                      : cell.isCurrentMonth
+                                        ? "Open Slot"
+                                        : "Next Window"}
+                                  </span>
+
+                                  <h2 className={isTimedEvent ? "has-prominent-time" : undefined}>
+                                    {event
+                                      ? event.title
+                                      : cell.isCurrentMonth
+                                        ? "No Featured Event"
+                                        : "Next Month"}
+                                  </h2>
+
+                                  {eventSubtitle ? (
+                                    <p className={isTimedEvent ? "tile-time-subtitle" : undefined}>
+                                      {isTimedEvent ? (
+                                        <>
+                                          <svg
+                                            aria-hidden="true"
+                                            className="tile-time-icon"
+                                            viewBox="0 0 24 24"
+                                            width="12"
+                                            height="12"
+                                          >
+                                            <circle cx="12" cy="12" r="8.5" />
+                                            <path d="M12 7.8v4.7l3.15 2.2" />
+                                          </svg>
+                                          <span>{eventSubtitle}</span>
+                                        </>
+                                      ) : (
+                                        eventSubtitle
+                                      )}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
 
                       {cell.overflowCount > 0 ? (
@@ -397,6 +475,36 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                         </div>
                       ) : null}
                     </button>
+
+                    {hasMultipleEvents ? (
+                      <>
+                        <button
+                          aria-label={`Show previous event for ${cell.dateKey}`}
+                          className="tile-carousel-arrow tile-carousel-arrow-left"
+                          disabled={!canMovePrevious}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            moveCarousel(cell, "previous");
+                          }}
+                          type="button"
+                        >
+                          <span aria-hidden="true">‹</span>
+                        </button>
+
+                        <button
+                          aria-label={`Show next event for ${cell.dateKey}`}
+                          className="tile-carousel-arrow tile-carousel-arrow-right"
+                          disabled={!canMoveNext}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            moveCarousel(cell, "next");
+                          }}
+                          type="button"
+                        >
+                          <span aria-hidden="true">›</span>
+                        </button>
+                      </>
+                    ) : null}
                   </article>
                 );
               })}
