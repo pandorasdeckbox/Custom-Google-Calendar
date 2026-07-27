@@ -49,14 +49,16 @@ body {
   position: relative;
   min-height: 100vh;
   margin: 0;
-  background-color: var(--background);
+  background-color: #000;
   color: var(--foreground);
   font-family: var(--font-body), sans-serif;
   background-image:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 24%),
     radial-gradient(circle at 18% 14%, rgba(255, 157, 54, 0.14), transparent 20%),
     radial-gradient(circle at 86% 10%, rgba(103, 73, 255, 0.18), transparent 18%),
-    linear-gradient(180deg, #151111 0%, #080707 58%, #040404 100%);
+    linear-gradient(180deg, #151111 0%, #080707 54%, #000000 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 100vh, 100% 100vh, 100% 100vh, 100% 100vh;
 }
 
 body::before {
@@ -300,12 +302,12 @@ a {
 }
 
 .calendar-cell[data-carousel-position="middle"] {
-  --tile-carousel-inline-start: 1.75rem;
+  --tile-carousel-inline-start: 0.5rem;
   --tile-carousel-inline-end: 1.3rem;
 }
 
 .calendar-cell[data-carousel-position="end"] {
-  --tile-carousel-inline-start: 1.75rem;
+  --tile-carousel-inline-start: 0.5rem;
   --tile-carousel-inline-end: 0;
   --tile-carousel-panel-inline-end: 0;
   --tile-overflow-inline-end: 0.65rem;
@@ -801,6 +803,20 @@ a {
   }
 }
 
+@media (min-width: 1121px) {
+  .embed-page {
+    max-width: 1430px;
+    margin: 0 auto;
+    padding-left: 55px;
+    padding-right: 55px;
+  }
+
+  .calendar-shell {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
 @media (max-width: 900px) {
   .embed-page {
     width: 100%;
@@ -824,7 +840,10 @@ a {
     font-size: 3.2rem;
   }
 
-  .weekday-strip,
+  .weekday-strip {
+    display: none;
+  }
+
   .calendar-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
