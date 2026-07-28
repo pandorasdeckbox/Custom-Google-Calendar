@@ -407,6 +407,26 @@ a {
   padding-right: var(--tile-carousel-inline-end, 0.9rem);
 }
 
+.tile-price-indicator {
+  position: absolute;
+  top: calc(26% + 0.42rem);
+  right: 0.72rem;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111;
+  font-family: var(--font-card), serif;
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.2);
+}
+
 .tile-carousel-slider {
   min-width: 0;
   width: 100%;
@@ -556,6 +576,10 @@ a {
 }
 
 .calendar-cell[data-has-carousel="true"] .tile-overflow {
+  right: var(--tile-overflow-inline-end);
+}
+
+.calendar-cell[data-has-carousel="true"] .tile-price-indicator {
   right: var(--tile-overflow-inline-end);
 }
 
@@ -721,8 +745,31 @@ a {
   justify-content: space-between;
 }
 
+.day-modal-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
 .day-modal-category {
   background: color-mix(in srgb, var(--modal-accent) 22%, rgba(255, 255, 255, 0.06));
+}
+
+.day-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--modal-accent) 26%, rgba(255, 255, 255, 0.14));
+  background: rgba(255, 255, 255, 0.06);
+  color: #f3ddbc;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .day-modal-event h3 {
@@ -763,6 +810,108 @@ a {
   margin: 0.8rem 0 0;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.day-modal-description {
+  white-space: pre-line;
+}
+
+.day-modal-link-row {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+.day-modal-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.58rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--modal-accent) 40%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--modal-accent) 12%, rgba(255, 255, 255, 0.03));
+  color: var(--soft-white);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.day-modal-action-link svg {
+  width: 1.12rem;
+  height: 1.12rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.day-modal-action-link:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--modal-accent) 64%, rgba(255, 255, 255, 0.18));
+}
+
+.day-modal-action-link.is-primary {
+  background: color-mix(in srgb, var(--modal-accent) 30%, rgba(255, 255, 255, 0.08));
+}
+
+.day-modal-registration {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr);
+  gap: 0.95rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.day-modal-registration-qr {
+  display: grid;
+  place-items: center;
+  width: 136px;
+  height: 136px;
+  padding: 0.7rem;
+  border-radius: 18px;
+  background: rgba(248, 239, 225, 0.08);
+}
+
+.day-modal-registration-copy {
+  min-width: 0;
+}
+
+.day-modal-registration-title,
+.day-modal-registration-text,
+.day-modal-code-note {
+  margin: 0;
+}
+
+.day-modal-registration-title {
+  color: var(--soft-white);
+  font-size: 0.96rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.day-modal-registration-text {
+  margin-top: 0.45rem;
+}
+
+.day-modal-code-note {
+  margin-top: 0.65rem;
+  color: #f0dcbf;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .calendar-footer {
@@ -893,5 +1042,14 @@ a {
   .day-modal {
     padding: 1rem;
     border-radius: 24px;
+  }
+
+  .day-modal-registration {
+    grid-template-columns: 1fr;
+  }
+
+  .day-modal-registration-qr {
+    width: min(136px, 100%);
+    margin: 0 auto;
   }
 }

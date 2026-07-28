@@ -2,6 +2,7 @@
 
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
+import QRCode from "react-qr-code";
 import { useEffect, useState, type CSSProperties } from "react";
 
 import communityLogo from "@/app/img/community.png";
@@ -15,6 +16,7 @@ import riftboundLogo from "@/app/img/riftbound.png";
 import {
   CATEGORY_STYLES,
   getCalendarEventTime,
+  normalizeCalendarDescription,
   type CalendarCategory,
   type CalendarEvent,
   type CalendarFeed,
@@ -51,21 +53,23 @@ function getCategoryLogo(category: CalendarCategory) {
   return CATEGORY_LOGOS[category] ?? null;
 }
 
-function normalizeDescription(value: string) {
-  return value
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+function formatEventPrice(amount: number) {
+  const minimumFractionDigits = Number.isInteger(amount) ? 0 : 2;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
-function getEventSummary(event: CalendarEvent) {
-  const normalizedDescription = normalizeDescription(event.description);
-  return normalizedDescription || event.location || event.sourceLabel;
+function getRegistrationHelperText(event: CalendarEvent) {
+  if (event.category === "magic" && event.registrationCode) {
+    return "Scan to open Magic Companion on your phone.";
+  }
+
+  return "Scan to open the event sign-in page on your phone.";
 }
 
 function formatDayHeading(dateKey: string) {
@@ -134,7 +138,7 @@ function buildEventIcs(event: CalendarEvent) {
   }
 
   if (event.description) {
-    lines.push(`DESCRIPTION:${escapeIcsText(normalizeDescription(event.description))}`);
+    lines.push(`DESCRIPTION:${escapeIcsText(normalizeCalendarDescription(event.description))}`);
   }
 
   if (event.link) {
@@ -441,6 +445,12 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                         </span>
                       </div>
 
+                      {activeEvent?.price && activeEvent.price > 0 ? (
+                        <span aria-label={`Paid event: ${formatEventPrice(activeEvent.price)}`} className="tile-price-indicator">
+                          $
+                        </span>
+                      ) : null}
+
                       <div className="tile-content tile-carousel-viewport compact-tile-content">
                         <div
                           className="tile-carousel-slider"
@@ -590,6 +600,7 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                   const eventTime = getCalendarEventTime(event, feed.timeZone);
                   const downloadHref = getEventDownloadHref(event);
                   const matchesSelectedCategory = eventMatchesCategory(event, selectedCategory);
+                  const hasExplicitPrice = event.price !== null;
 
                   return (
                     <article
@@ -600,17 +611,29 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                       <div className="day-modal-event-top">
                         <span className="day-modal-category">{theme.label}</span>
 
-                        <a
-                          aria-label={`Download ${event.title} as iCal`}
-                          className="day-modal-download"
-                          download={getEventDownloadName(event)}
-                          href={downloadHref}
-                        >
-                          <svg aria-hidden="true" viewBox="0 0 24 24">
-                            <path d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 3.99a1 1 0 0 1-1.4 0l-4-3.99a1 1 0 0 1 1.4-1.41L11 12.59V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
-                          </svg>
-                          <span>iCal</span>
-                        </a>
+                        <div className="day-modal-actions">
+                          {hasExplicitPrice ? (
+                            <span className="day-modal-badge">
+                              {event.price && event.price > 0 ? formatEventPrice(event.price) : "Free"}
+                            </span>
+                          ) : null}
+
+                          {event.capacity ? (
+                            <span className="day-modal-badge">{event.capacity} seats</span>
+                          ) : null}
+
+                          <a
+                            aria-label={`Download ${event.title} as iCal`}
+                            className="day-modal-download"
+                            download={getEventDownloadName(event)}
+                            href={downloadHref}
+                          >
+                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                              <path d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 3.99a1 1 0 0 1-1.4 0l-4-3.99a1 1 0 0 1 1.4-1.41L11 12.59V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
+                            </svg>
+                            <span>iCal</span>
+                          </a>
+                        </div>
                       </div>
 
                       <h3>{event.title}</h3>
@@ -625,7 +648,62 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                         </span>
                       </div>
 
-                      {event.description ? <p>{getEventSummary(event)}</p> : null}
+                      {(event.ticketsUrl || (event.registrationUrl && event.category !== "magic")) ? (
+                        <div className="day-modal-link-row">
+                          {event.registrationUrl && event.category !== "magic" ? (
+                            <a
+                              className="day-modal-action-link"
+                              href={event.registrationUrl}
+                              rel="noreferrer"
+                              target="_top"
+                            >
+                              Open Sign-In
+                            </a>
+                          ) : null}
+
+                          {event.ticketsUrl ? (
+                            <a
+                              className="day-modal-action-link is-primary"
+                              href={event.ticketsUrl}
+                              rel="noreferrer"
+                              target="_top"
+                            >
+                              <svg aria-hidden="true" viewBox="0 0 24 24">
+                                <path d="M4.5 8.25A2.25 2.25 0 0 1 6.75 6h10.5a2.25 2.25 0 0 1 2.25 2.25v1.6a2 2 0 0 0 0 4.3v1.6A2.25 2.25 0 0 1 17.25 18H6.75a2.25 2.25 0 0 1-2.25-2.25v-1.6a2 2 0 0 0 0-4.3v-1.6Z" />
+                                <path d="M12 8.6v1.4" />
+                                <path d="M12 11.3v1.4" />
+                                <path d="M12 14v1.4" />
+                              </svg>
+                              <span>Buy Ticket</span>
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {event.description ? (
+                        <p className="day-modal-description">{normalizeCalendarDescription(event.description)}</p>
+                      ) : null}
+
+                      {event.registrationUrl ? (
+                        <div className="day-modal-registration">
+                          <div className="day-modal-registration-qr" aria-hidden="true">
+                            <QRCode
+                              bgColor="transparent"
+                              fgColor="#f8efe1"
+                              size={124}
+                              value={event.registrationUrl}
+                            />
+                          </div>
+
+                          <div className="day-modal-registration-copy">
+                            <p className="day-modal-registration-title">Scan to sign in</p>
+                            <p className="day-modal-registration-text">{getRegistrationHelperText(event)}</p>
+                            {event.category === "magic" && event.registrationCode ? (
+                              <p className="day-modal-code-note">Code: {event.registrationCode}</p>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
                     </article>
                   );
                 })}

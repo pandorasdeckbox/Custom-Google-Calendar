@@ -66,6 +66,11 @@ export type CalendarEvent = {
   sourceId: string;
   sourceLabel: string;
   link: string;
+  price: number | null;
+  capacity: number | null;
+  registrationCode: string | null;
+  registrationUrl: string | null;
+  ticketsUrl: string | null;
 };
 
 export type CalendarGridColumn = {
@@ -159,6 +164,23 @@ const CATEGORY_KEYWORDS: Record<CalendarCategory, string[]> = {
 };
 
 const CLOSED_KEYWORDS = ["closed", "no events", "holiday closure", "store closed"];
+const DESCRIPTION_METADATA_PATTERN = /^([A-Z][A-Z0-9 -]*):\s*(.+)$/;
+const GAME_OVERRIDES: Record<string, CalendarCategory> = {
+  "board games": "board-games",
+  "board game": "board-games",
+  "flesh and blood": "flesh-and-blood",
+  "flesh & blood": "flesh-and-blood",
+  fab: "flesh-and-blood",
+  gundam: "gundam",
+  lorcana: "lorcana",
+  magic: "magic",
+  marvel: "marvel",
+  mtg: "magic",
+  "one piece": "one-piece",
+  onepiece: "one-piece",
+  pokemon: "pokemon",
+  riftbound: "riftbound",
+};
 
 const WEEKDAY_LABELS = [
   { shortLabel: "Sun", fullLabel: "Sunday" },
@@ -280,6 +302,18 @@ function getCalendarUrl() {
   return process.env.NEXT_PUBLIC_CALENDAR_URL?.trim() || "https://calendar.google.com";
 }
 
+export function normalizeCalendarDescription(value: string) {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 function normalizeTimeZone(value: string | undefined) {
   const candidate = value?.trim();
   if (!candidate) return undefined;
@@ -385,6 +419,148 @@ function inferCategories(...values: string[]) {
   }
 
   return matches;
+}
+
+function resolveGameOverride(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return undefined;
+
+  const directMatch = GAME_OVERRIDES[normalized];
+  if (directMatch) return directMatch;
+
+  return inferCategories(value)[0];
+}
+
+function parsePrice(value: string) {
+  const amount = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
+  if (Number.isNaN(amount)) return null;
+  return amount > 0 ? amount : 0;
+}
+
+function inferPriceFromDescription(value: string) {
+  const normalizedValue = value.trim();
+  if (!normalizedValue) return null;
+
+  const contextualPatterns = [
+    /(?:entry fee|admission|cover|registration|ticket(?:s)?|buy-?in|price|cost|fee)[^$\n]{0,40}\$\s*(\d+(?:\.\d{1,2})?)/i,
+    /^\$\s*(\d+(?:\.\d{1,2})?)$/im,
+  ];
+
+  for (const pattern of contextualPatterns) {
+    const match = normalizedValue.match(pattern);
+    if (!match) continue;
+
+    const amount = Number.parseFloat(match[1]);
+    if (!Number.isNaN(amount) && amount > 0) {
+      return amount;
+    }
+  }
+
+  const currencyMatches = Array.from(
+    normalizedValue.matchAll(/\$\s*(\d+(?:\.\d{1,2})?)/g),
+    (match) => Number.parseFloat(match[1]),
+  ).filter((amount) => !Number.isNaN(amount) && amount > 0);
+
+  if (currencyMatches.length !== 1) {
+    return null;
+  }
+
+  return currencyMatches[0];
+}
+
+function parseCapacity(value: string) {
+  const amount = Number.parseInt(value.replace(/[^0-9]/g, ""), 10);
+  return Number.isNaN(amount) || amount <= 0 ? null : amount;
+}
+
+function normalizeExternalUrl(value: string) {
+  try {
+    return new URL(value).toString();
+  } catch {
+    return null;
+  }
+}
+
+function resolveRegistrationUrl(
+  category: CalendarCategory,
+  registrationCode: string | null,
+) {
+  if (!registrationCode) return null;
+
+  const directUrl = normalizeExternalUrl(registrationCode);
+  if (directUrl) return directUrl;
+
+  if (category === "magic") {
+    return `https://magic.wizards.com/en/products/companion-app?shortCode=${encodeURIComponent(registrationCode)}`;
+  }
+
+  return null;
+}
+
+type ParsedEventDescription = {
+  description: string;
+  gameOverride?: CalendarCategory;
+  price: number | null;
+  capacity: number | null;
+  registrationCode: string | null;
+  ticketsUrl: string | null;
+};
+
+function parseEventDescription(rawDescription: string): ParsedEventDescription {
+  const normalizedDescription = normalizeCalendarDescription(rawDescription);
+  const visibleLines: string[] = [];
+  let gameOverride: CalendarCategory | undefined;
+  let price: number | null = null;
+  let capacity: number | null = null;
+  let registrationCode: string | null = null;
+  let ticketsUrl: string | null = null;
+
+  for (const line of normalizedDescription.split("\n")) {
+    const trimmedLine = line.trim();
+    const metadataMatch = trimmedLine.match(DESCRIPTION_METADATA_PATTERN);
+
+    if (!metadataMatch) {
+      visibleLines.push(line);
+      continue;
+    }
+
+    const [, rawKey, rawValue] = metadataMatch;
+    const key = rawKey.trim();
+    const value = rawValue.trim();
+
+    if (!value) {
+      continue;
+    }
+
+    switch (key) {
+      case "GAME":
+        gameOverride = resolveGameOverride(value) || gameOverride;
+        break;
+      case "PRICE":
+        price = parsePrice(value);
+        break;
+      case "CODE":
+        registrationCode = value;
+        break;
+      case "CAPACITY":
+        capacity = parseCapacity(value);
+        break;
+      case "TICKETS":
+        ticketsUrl = normalizeExternalUrl(value);
+        break;
+      default:
+        break;
+    }
+  }
+
+  return {
+    description: visibleLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+    gameOverride,
+    price: price ?? inferPriceFromDescription(normalizedDescription),
+    capacity,
+    registrationCode,
+    ticketsUrl,
+  };
 }
 
 function isGenericOpenPlayTitle(title: string) {
@@ -553,7 +729,8 @@ function normalizeEvent(
   if (!event.id || event.status === "cancelled") return null;
 
   const title = event.summary?.trim() || "Untitled Event";
-  const description = event.description?.trim() || "";
+  const parsedDescription = parseEventDescription(event.description?.trim() || "");
+  const description = parsedDescription.description;
   const location = event.location?.trim() || "";
   const allDay = Boolean(event.start?.date && !event.start?.dateTime);
 
@@ -578,7 +755,9 @@ function normalizeEvent(
     : formatDateKeyInTimeZone(new Date(endsAt), sourceTimeZone);
 
   const inferredCategories = inferCategories(title, description, location, sourceLabel);
-  const category = resolvePrimaryCategory(source.category, inferredCategories, title);
+  const category =
+    parsedDescription.gameOverride ||
+    resolvePrimaryCategory(source.category, inferredCategories, title);
   const displayCategories = resolveDisplayCategories(
     category,
     inferredCategories,
@@ -605,6 +784,11 @@ function normalizeEvent(
     sourceId: source.id,
     sourceLabel,
     link: event.htmlLink || getCalendarUrl(),
+    price: parsedDescription.price,
+    capacity: parsedDescription.capacity,
+    registrationCode: parsedDescription.registrationCode,
+    registrationUrl: resolveRegistrationUrl(category, parsedDescription.registrationCode),
+    ticketsUrl: parsedDescription.ticketsUrl,
   };
 }
 
@@ -711,6 +895,11 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       sourceId: `mock-${category}`,
       sourceLabel: CATEGORY_STYLES[category].label,
       link: getCalendarUrl(),
+      price: null,
+      capacity: null,
+      registrationCode: null,
+      registrationUrl: null,
+      ticketsUrl: null,
     };
   };
 
@@ -755,6 +944,11 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       sourceId: `mock-${category}`,
       sourceLabel: CATEGORY_STYLES[category].label,
       link: getCalendarUrl(),
+      price: null,
+      capacity: null,
+      registrationCode: null,
+      registrationUrl: null,
+      ticketsUrl: null,
     };
   };
 
