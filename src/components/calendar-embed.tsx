@@ -31,6 +31,8 @@ type CalendarEmbedProps = {
 
 type CarouselDirection = "previous" | "next";
 
+const EMBED_SCROLL_REQUEST_MESSAGE_TYPE = "custom-google-calendar:scroll-request";
+
 const CATEGORY_LOGOS: Partial<Record<CalendarCategory, StaticImageData>> = {
   magic: magicLogo,
   pokemon: pokemonLogo,
@@ -290,6 +292,19 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [selectedCell]);
+
+  useEffect(() => {
+    if (!embedded || !selectedCell || window.parent === window) {
+      return;
+    }
+
+    window.parent.postMessage(
+      {
+        type: EMBED_SCROLL_REQUEST_MESSAGE_TYPE,
+      },
+      "*",
+    );
+  }, [embedded, selectedCell]);
 
   function getActiveEventIndex(cell: CalendarGridCell) {
     const carouselKey = getCarouselKey(feed.month.key, cell.key);
@@ -565,6 +580,7 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
         <div
           aria-hidden="true"
           className="day-modal-backdrop"
+          data-embedded-modal={embedded ? "true" : undefined}
           onClick={() => setSelectedDayId(null)}
         >
           <section
