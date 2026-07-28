@@ -1,4 +1,5 @@
 import { CalendarEmbed } from "@/components/calendar-embed";
+import { EmbedHeightReporter } from "@/components/embed-height-reporter";
 import { getCalendarFeed } from "@/lib/calendar";
 
 export const revalidate = 300;
@@ -21,6 +22,7 @@ export default async function EmbedPage({
 
   return (
     <main className="embed-page">
+      <EmbedHeightReporter />
       <CalendarEmbed feed={feed} embedded basePath="/embed" />
     </main>
   );
