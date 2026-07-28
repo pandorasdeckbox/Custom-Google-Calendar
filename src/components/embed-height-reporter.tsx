@@ -4,15 +4,19 @@ import { useEffect } from "react";
 
 const EMBED_HEIGHT_MESSAGE_TYPE = "custom-google-calendar:height";
 
-function getDocumentHeight() {
-  const { body, documentElement } = document;
+function getContentHeight() {
+  const contentRoot = document.querySelector<HTMLElement>("[data-embed-height-root]");
 
-  return Math.max(
-    body?.scrollHeight ?? 0,
-    body?.offsetHeight ?? 0,
-    documentElement.scrollHeight,
-    documentElement.offsetHeight,
-    documentElement.clientHeight,
+  if (!contentRoot) {
+    return 0;
+  }
+
+  return Math.ceil(
+    Math.max(
+      contentRoot.scrollHeight,
+      contentRoot.offsetHeight,
+      contentRoot.getBoundingClientRect().height,
+    ),
   );
 }
 
@@ -26,11 +30,16 @@ export function EmbedHeightReporter() {
 
     let animationFrameId = 0;
     let lastReportedHeight = -1;
+    const contentRoot = document.querySelector<HTMLElement>("[data-embed-height-root]");
+
+    if (!contentRoot) {
+      return;
+    }
 
     const postHeight = () => {
       animationFrameId = 0;
 
-      const nextHeight = getDocumentHeight();
+      const nextHeight = getContentHeight();
 
       if (nextHeight === lastReportedHeight) {
         return;
@@ -59,17 +68,13 @@ export function EmbedHeightReporter() {
       schedulePostHeight();
     });
 
-    resizeObserver.observe(document.documentElement);
-
-    if (document.body) {
-      resizeObserver.observe(document.body);
-    }
+    resizeObserver.observe(contentRoot);
 
     const mutationObserver = new MutationObserver(() => {
       schedulePostHeight();
     });
 
-    mutationObserver.observe(document.documentElement, {
+    mutationObserver.observe(contentRoot, {
       attributes: true,
       childList: true,
       subtree: true,

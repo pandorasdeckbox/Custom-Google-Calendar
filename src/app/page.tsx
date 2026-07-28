@@ -24,7 +24,7 @@ export default async function Home({
   const feed = await getCalendarFeed(month);
 
   return (
-    <main className="embed-page">
+    <main className="embed-page" data-embed-height-root>
       <EmbedHeightReporter />
       <CalendarEmbed feed={feed} embedded basePath="/" />
     </main>
