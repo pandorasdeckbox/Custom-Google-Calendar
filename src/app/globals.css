@@ -45,6 +45,10 @@ html {
   scroll-behavior: smooth;
 }
 
+html[data-embedded-iframe="true"] body {
+  min-height: 0;
+}
+
 body {
   position: relative;
   min-height: 100vh;
@@ -102,6 +106,10 @@ a {
 
 .calendar-shell.embedded {
   min-height: 100vh;
+}
+
+html[data-embedded-iframe="true"] .calendar-shell.embedded {
+  min-height: 0;
 }
 
 .calendar-banner {

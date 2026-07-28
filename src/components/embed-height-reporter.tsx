@@ -18,6 +18,12 @@ function getDocumentHeight() {
 
 export function EmbedHeightReporter() {
   useEffect(() => {
+    if (window.parent === window) {
+      return;
+    }
+
+    document.documentElement.dataset.embeddedIframe = "true";
+
     let animationFrameId = 0;
     let lastReportedHeight = -1;
 
@@ -81,6 +87,8 @@ export function EmbedHeightReporter() {
     });
 
     return () => {
+      delete document.documentElement.dataset.embeddedIframe;
+
       if (animationFrameId) {
         window.cancelAnimationFrame(animationFrameId);
       }
