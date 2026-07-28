@@ -1,7 +1,16 @@
 "use client";
 
+import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
+
+import communityLogo from "@/app/img/community.png";
+import gundamLogo from "@/app/img/gundam.png";
+import lorcanaLogo from "@/app/img/lorcana.png";
+import magicLogo from "@/app/img/magic.png";
+import onePieceLogo from "@/app/img/one-piece.png";
+import pokemonLogo from "@/app/img/pokemon.png";
+import riftboundLogo from "@/app/img/riftbound.png";
 
 import {
   CATEGORY_STYLES,
@@ -20,12 +29,26 @@ type CalendarEmbedProps = {
 
 type CarouselDirection = "previous" | "next";
 
+const CATEGORY_LOGOS: Partial<Record<CalendarCategory, StaticImageData>> = {
+  magic: magicLogo,
+  pokemon: pokemonLogo,
+  lorcana: lorcanaLogo,
+  "one-piece": onePieceLogo,
+  gundam: gundamLogo,
+  riftbound: riftboundLogo,
+  other: communityLogo,
+};
+
 function buildMonthHref(basePath: string, monthKey: string) {
   return `${basePath}?month=${monthKey}`;
 }
 
 function getCarouselKey(monthKey: string, dateKey: string) {
   return `${monthKey}:${dateKey}`;
+}
+
+function getCategoryLogo(category: CalendarCategory) {
+  return CATEGORY_LOGOS[category] ?? null;
 }
 
 function normalizeDescription(value: string) {
@@ -400,7 +423,22 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                     >
                       <div className="tile-date-row">
                         <span className="tile-day-number">{cell.dayNumber}</span>
-                        <span className="tile-mark">{activeEvent ? theme.shortLabel : "OPEN"}</span>
+                        <span className={`tile-mark${activeEvent && getCategoryLogo(activeEvent.category) ? " has-logo" : ""}`}>
+                          {activeEvent ? (
+                            getCategoryLogo(activeEvent.category) ? (
+                              <Image
+                                alt={`${theme.label} logo`}
+                                className="tile-mark-image"
+                                sizes="44px"
+                                src={getCategoryLogo(activeEvent.category)!}
+                              />
+                            ) : (
+                              theme.shortLabel
+                            )
+                          ) : (
+                            "OPEN"
+                          )}
+                        </span>
                       </div>
 
                       <div className="tile-content tile-carousel-viewport compact-tile-content">
