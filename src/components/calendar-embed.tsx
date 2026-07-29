@@ -6,6 +6,7 @@ import QRCode from "react-qr-code";
 import { useEffect, useState, type CSSProperties } from "react";
 
 import communityLogo from "@/app/img/community.png";
+import dragonBallLogo from "@/app/img/dragon-ball.png";
 import gundamLogo from "@/app/img/gundam.png";
 import lorcanaLogo from "@/app/img/lorcana.png";
 import magicLogo from "@/app/img/magic.png";
@@ -38,6 +39,7 @@ const CATEGORY_LOGOS: Partial<Record<CalendarCategory, StaticImageData>> = {
   pokemon: pokemonLogo,
   lorcana: lorcanaLogo,
   "one-piece": onePieceLogo,
+  "dragon-ball": dragonBallLogo,
   gundam: gundamLogo,
   riftbound: riftboundLogo,
   other: communityLogo,

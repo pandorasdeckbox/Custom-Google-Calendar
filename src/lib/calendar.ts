@@ -3,6 +3,7 @@ export type CalendarCategory =
   | "pokemon"
   | "lorcana"
   | "one-piece"
+  | "dragon-ball"
   | "gundam"
   | "marvel"
   | "riftbound"
@@ -147,6 +148,16 @@ const CATEGORY_KEYWORDS: Record<CalendarCategory, string[]> = {
   pokemon: ["pokemon", "pkmn", "league challenge", "gym leader"],
   lorcana: ["lorcana", "disney", "illumineer"],
   "one-piece": ["one piece", "op", "opcg", "st13", "starter deck"],
+  "dragon-ball": [
+    "dragon ball",
+    "dragonball",
+    "dragon ball masters",
+    "dragon ball fusion world",
+    "fusion world",
+    "dbfw",
+    "dbs masters",
+    "dbscg",
+  ],
   gundam: ["gundam", "gundam card game", "gunpla"],
   marvel: ["marvel", "super heroes", "spider-man"],
   riftbound: ["riftbound", "vendetta", "pre-rift", "skirmish", "chaos"],
@@ -172,6 +183,13 @@ const GAME_OVERRIDES: Record<string, CalendarCategory> = {
   "flesh & blood": "flesh-and-blood",
   fab: "flesh-and-blood",
   gundam: "gundam",
+  "dragon ball": "dragon-ball",
+  dragonball: "dragon-ball",
+  "dragon ball masters": "dragon-ball",
+  "dragon ball fusion world": "dragon-ball",
+  "fusion world": "dragon-ball",
+  dbfw: "dragon-ball",
+  dbscg: "dragon-ball",
   lorcana: "lorcana",
   magic: "magic",
   marvel: "marvel",
@@ -239,6 +257,12 @@ export const CATEGORY_STYLES: Record<
     shortLabel: "OP",
     color: "var(--one-piece)",
     accent: "var(--one-piece-accent)",
+  },
+  "dragon-ball": {
+    label: "Dragon Ball",
+    shortLabel: "DB",
+    color: "var(--dragon-ball)",
+    accent: "var(--dragon-ball-accent)",
   },
   gundam: {
     label: "Gundam",
