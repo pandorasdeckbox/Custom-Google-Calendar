@@ -403,6 +403,10 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
           {feed.month.weeks.map((week) => (
             <div className="calendar-row" key={week.key}>
               {week.cells.map((cell) => {
+                if (!cell.isCurrentMonth) {
+                  return <div aria-hidden="true" className="calendar-gap-cell" key={cell.key} />;
+                }
+
                 const activeEventIndex = getActiveEventIndex(cell);
                 const activeEvent = cell.events[activeEventIndex] ?? cell.primaryEvent;
                 const theme = activeEvent

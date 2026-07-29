@@ -214,6 +214,11 @@ html[data-embedded-iframe="true"] .calendar-shell.embedded {
   gap: 0.82rem;
 }
 
+.calendar-gap-cell {
+  min-height: 3.25rem;
+  pointer-events: none;
+}
+
 .calendar-cell {
   position: relative;
   isolation: isolate;
@@ -1033,6 +1038,10 @@ html[data-embedded-iframe="true"] .day-modal-backdrop[data-embedded-modal="true"
 
   .calendar-row {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-gap-cell {
+    min-height: 1.4rem;
   }
 
   .weekday-strip {
