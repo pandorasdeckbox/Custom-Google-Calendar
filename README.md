@@ -103,6 +103,7 @@ Other useful settings:
 - `NEXT_PUBLIC_CALENDAR_URL`: outbound link target for the "Open Google Calendar" action.
 - `DISCORD_WEEKLY_WEBHOOK_URL`: Discord webhook used by `/api/discord/weekly` to post the weekly image.
 - `DISCORD_WEEKLY_POST_SECRET`: optional bearer or `x-calendar-post-secret` value required by the weekly Discord route.
+- `WEEKLY_DISCORD_BASE_URL`: deployed app base URL used by the local helper scripts, for example `https://your-app.up.railway.app`.
 
 ## Routes
 
@@ -119,6 +120,62 @@ Examples:
 - `/api/events?month=2026-07`
 - `/week?week=2026-07-27`
 - `/api/events?view=week&week=2026-07-27`
+
+## Local trigger scripts
+
+If you want to trigger the deployed weekly Discord flow from your Mac without typing `curl`, use the included npm scripts.
+
+Set this locally:
+
+```bash
+WEEKLY_DISCORD_BASE_URL=https://your-app.up.railway.app
+```
+
+If your deployed route is protected, also set:
+
+```bash
+DISCORD_WEEKLY_POST_SECRET=your-shared-secret
+```
+
+Examples:
+
+```bash
+npm run discord:weekly:preview
+npm run discord:weekly:post
+npm run discord:weekly:preview -- --week=2026-07-27
+npm run discord:weekly:post -- --week=2026-07-27
+```
+
+You can also override the target URL for a one-off run:
+
+```bash
+npm run discord:weekly:post -- --base-url=https://your-app.up.railway.app --week=2026-07-27
+```
+
+## Local Monday automation on macOS
+
+This repo also includes a native `launchd` job so your Mac can run the weekly Discord post automatically every Monday at `10:30 AM` local time.
+
+Install it:
+
+```bash
+npm run discord:weekly:install-agent
+```
+
+Remove it:
+
+```bash
+npm run discord:weekly:uninstall-agent
+```
+
+The installed job writes logs to:
+
+```text
+~/Library/Logs/custom-google-calendar-weekly-discord.log
+~/Library/Logs/custom-google-calendar-weekly-discord.error.log
+```
+
+The job uses the same local `.env` values as the CLI, so make sure `WEEKLY_DISCORD_BASE_URL` and any optional `DISCORD_WEEKLY_POST_SECRET` are set there before installing it.
 
 ## Railway notes
 

@@ -7,7 +7,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "discord:weekly:preview": "node scripts/weekly-discord.mjs preview",
+    "discord:weekly:post": "node scripts/weekly-discord.mjs post",
+    "discord:weekly:install-agent": "/bin/zsh ./scripts/install-weekly-discord-launch-agent.sh",
+    "discord:weekly:uninstall-agent": "/bin/zsh ./scripts/uninstall-weekly-discord-launch-agent.sh"
   },
   "dependencies": {
     "@fontsource/berkshire-swash": "^5.3.0",

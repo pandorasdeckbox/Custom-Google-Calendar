@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.pandorasdeckbox.custom-google-calendar.weekly-discord</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>__REPO_DIR__/scripts/run-weekly-discord-post.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO_DIR__</string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>1</integer>
+    <key>Hour</key>
+    <integer>10</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/custom-google-calendar-weekly-discord.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/custom-google-calendar-weekly-discord.error.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

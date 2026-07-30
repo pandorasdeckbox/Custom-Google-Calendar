@@ -292,7 +292,7 @@ export function buildWeeklyDiscordMessage(feed: CalendarFeed) {
   const lines = [
     `## ${feed.brandName} Weekly Event Board`,
     `### ${feed.month.label}`,
-    `[View full calendar](${getFullCalendarUrl()})`,
+    `Full calendar: <${getFullCalendarUrl()}>`,
     "",
     ...cells.flatMap((cell, index) =>
       getDaySummaryLines(
