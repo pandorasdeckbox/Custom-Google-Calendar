@@ -4,7 +4,13 @@ import { getCalendarFeed } from "@/lib/calendar";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const feed = await getCalendarFeed(searchParams.get("month") || undefined);
+  const rawView = searchParams.get("view")?.trim().toLowerCase();
+  const viewMode = rawView === "week" ? "week" : "month";
+  const feed = await getCalendarFeed({
+    monthKey: searchParams.get("month") || undefined,
+    viewMode,
+    weekKey: searchParams.get("week") || undefined,
+  });
   const status = feed.status === "mock-error" ? 503 : 200;
 
   return NextResponse.json(feed, {

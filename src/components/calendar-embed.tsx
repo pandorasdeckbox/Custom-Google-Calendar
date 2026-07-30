@@ -45,8 +45,12 @@ const CATEGORY_LOGOS: Partial<Record<CalendarCategory, StaticImageData>> = {
   other: communityLogo,
 };
 
-function buildMonthHref(basePath: string, monthKey: string) {
-  return `${basePath}?month=${monthKey}`;
+function buildCalendarHref(
+  basePath: string,
+  queryParamKey: "month" | "week",
+  viewKey: string,
+) {
+  return `${basePath}?${queryParamKey}=${viewKey}`;
 }
 
 function getCarouselKey(monthKey: string, dateKey: string) {
@@ -265,6 +269,8 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
     selectedDayId?.startsWith(`${feed.month.key}:`)
       ? cells.find((cell) => `${feed.month.key}:${cell.dateKey}` === selectedDayId) || null
       : null;
+  const previousLabel = feed.viewMode === "week" ? "Previous week" : "Previous month";
+  const nextLabel = feed.viewMode === "week" ? "Next week" : "Next month";
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -370,9 +376,9 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
         <header className="calendar-banner">
           <div className="calendar-toolbar">
             <Link
-              aria-label={`Previous month: ${feed.month.previousKey}`}
+              aria-label={`${previousLabel}: ${feed.month.previousKey}`}
               className="month-nav-link month-arrow-link"
-              href={buildMonthHref(basePath, feed.month.previousKey)}
+              href={buildCalendarHref(basePath, feed.month.queryParamKey, feed.month.previousKey)}
             >
               <span aria-hidden="true">&larr;</span>
             </Link>
@@ -382,9 +388,9 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
             </div>
 
             <Link
-              aria-label={`Next month: ${feed.month.nextKey}`}
+              aria-label={`${nextLabel}: ${feed.month.nextKey}`}
               className="month-nav-link month-arrow-link"
-              href={buildMonthHref(basePath, feed.month.nextKey)}
+              href={buildCalendarHref(basePath, feed.month.queryParamKey, feed.month.nextKey)}
             >
               <span aria-hidden="true">&rarr;</span>
             </Link>

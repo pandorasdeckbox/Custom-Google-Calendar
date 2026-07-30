@@ -97,11 +97,16 @@ export type CalendarGridWeek = {
   cells: CalendarGridCell[];
 };
 
+export type CalendarViewMode = "month" | "week";
+
 export type CalendarMonthView = {
+  mode: CalendarViewMode;
   key: string;
   label: string;
   previousKey: string;
   nextKey: string;
+  queryParamKey: "month" | "week";
+  anchorDateKey: string;
   columns: CalendarGridColumn[];
   weeks: CalendarGridWeek[];
 };
@@ -129,6 +134,7 @@ export type CalendarFeed = {
   errors: string[];
   timeZone: string;
   generatedAt: string;
+  viewMode: CalendarViewMode;
   month: CalendarMonthView;
   sources: CalendarSourceSummary[];
 };
@@ -306,6 +312,7 @@ const FIVE_MINUTES = 5;
 const DEFAULT_TIME_ZONE = "UTC";
 const DEFAULT_DISPLAY_DAYS = [4, 5, 6, 0];
 const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function getBrandName() {
   return process.env.NEXT_PUBLIC_BRAND_NAME?.trim() || "Pandora's Deck Box";
@@ -683,6 +690,15 @@ function isValidMonthKey(value: string | undefined): value is string {
   return month >= 1 && month <= 12;
 }
 
+function isValidDateKey(value: string | undefined): value is string {
+  if (!value || !DATE_KEY_PATTERN.test(value)) return false;
+
+  const [year, month, day] = value.split("-").map((segment) => Number.parseInt(segment, 10));
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+
+  return formatDateKeyFromUtcDate(date) === value;
+}
+
 function getMonthKeyForDate(date: Date, timeZone: string) {
   const parts = getDatePartsInTimeZone(date, timeZone);
   return `${parts.year}-${parts.month}`;
@@ -701,6 +717,10 @@ function getResolvedMonthKey(monthKey: string | undefined, timeZone: string) {
   return isValidMonthKey(monthKey) ? monthKey : getMonthKeyForDate(new Date(), timeZone);
 }
 
+function getResolvedDateKey(dateKey: string | undefined, timeZone: string) {
+  return isValidDateKey(dateKey) ? dateKey : getTodayDateKey(timeZone);
+}
+
 function shiftMonthKey(monthKey: string, delta: number) {
   const [year, month] = monthKey.split("-").map((value) => Number.parseInt(value, 10));
   const date = new Date(Date.UTC(year, month - 1 + delta, 1, 12, 0, 0, 0));
@@ -714,6 +734,56 @@ function formatMonthLabel(monthKey: string) {
     month: "long",
     year: "numeric",
   }).format(new Date(Date.UTC(year, month - 1, 1, 12, 0, 0, 0)));
+}
+
+function getWeekStartDateKey(dateKey: string, weekStartWeekday = 1) {
+  let cursor = dateKey;
+
+  while (getWeekday(cursor) !== weekStartWeekday) {
+    cursor = addDays(cursor, -1);
+  }
+
+  return cursor;
+}
+
+function formatWeekLabel(startDateKey: string, endDateKey: string) {
+  const startDate = dateKeyToUtcDate(startDateKey);
+  const endDate = dateKeyToUtcDate(endDateKey);
+  const sameYear = startDate.getUTCFullYear() === endDate.getUTCFullYear();
+  const sameMonth =
+    sameYear && startDate.getUTCMonth() === endDate.getUTCMonth();
+
+  if (sameMonth) {
+    return `${new Intl.DateTimeFormat("en-US", {
+      timeZone: "UTC",
+      month: "long",
+    }).format(startDate)} ${startDate.getUTCDate()}-${endDate.getUTCDate()}, ${endDate.getUTCFullYear()}`;
+  }
+
+  if (sameYear) {
+    return `${new Intl.DateTimeFormat("en-US", {
+      timeZone: "UTC",
+      month: "long",
+      day: "numeric",
+    }).format(startDate)} - ${new Intl.DateTimeFormat("en-US", {
+      timeZone: "UTC",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(endDate)}`;
+  }
+
+  return `${new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(startDate)} - ${new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(endDate)}`;
 }
 
 function sourceLabelFromId(sourceId: string) {
@@ -1145,6 +1215,28 @@ function getVisibleMonthRange(monthKey: string, columns: CalendarGridColumn[]) {
   };
 }
 
+function buildGridCell(
+  dateKey: string,
+  indexedEvents: Map<string, CalendarEvent[]>,
+  todayDateKey: string,
+  isCurrentMonth: boolean,
+): CalendarGridCell {
+  const cellEvents = indexedEvents.get(dateKey) || [];
+  const primaryEvent = cellEvents[0] || null;
+
+  return {
+    key: dateKey,
+    dateKey,
+    dayNumber: String(Number.parseInt(dateKey.slice(8, 10), 10)),
+    isCurrentMonth,
+    isToday: dateKey === todayDateKey,
+    events: cellEvents,
+    primaryEvent,
+    overflowCount: Math.max(cellEvents.length - 1, 0),
+    isClosed: Boolean(primaryEvent?.isClosed),
+  };
+}
+
 function buildEventIndex(events: CalendarEvent[]) {
   const index = new Map<string, CalendarEvent[]>();
 
@@ -1192,20 +1284,8 @@ function buildMonthView(
   ) {
     const cells = columnOffsets.map((offset) => {
       const dateKey = addDays(rowStart, offset);
-      const cellEvents = indexedEvents.get(dateKey) || [];
-      const primaryEvent = cellEvents[0] || null;
 
-      return {
-        key: dateKey,
-        dateKey,
-        dayNumber: String(Number.parseInt(dateKey.slice(8, 10), 10)),
-        isCurrentMonth: dateKey.startsWith(monthKey),
-        isToday: dateKey === todayDateKey,
-        events: cellEvents,
-        primaryEvent,
-        overflowCount: Math.max(cellEvents.length - 1, 0),
-        isClosed: Boolean(primaryEvent?.isClosed),
-      };
+      return buildGridCell(dateKey, indexedEvents, todayDateKey, dateKey.startsWith(monthKey));
     });
 
     weeks.push({
@@ -1215,13 +1295,114 @@ function buildMonthView(
   }
 
   return {
+    mode: "month",
     key: monthKey,
     label: formatMonthLabel(monthKey),
     previousKey: shiftMonthKey(monthKey, -1),
     nextKey: shiftMonthKey(monthKey, 1),
+    queryParamKey: "month",
+    anchorDateKey: getMonthStartKey(monthKey),
     columns,
     weeks,
   };
+}
+
+function buildWeekView(
+  events: CalendarEvent[],
+  weekKey: string,
+  timeZone: string,
+  columns: CalendarGridColumn[],
+): CalendarMonthView {
+  const todayDateKey = getTodayDateKey(timeZone);
+  const indexedEvents = buildEventIndex(events);
+  const rowStart = getWeekStartDateKey(weekKey, 1);
+  const columnOffsets = columns.map((column) => (column.weekday - 1 + 7) % 7);
+  const cells = columnOffsets.map((offset) => {
+    const dateKey = addDays(rowStart, offset);
+
+    return buildGridCell(dateKey, indexedEvents, todayDateKey, true);
+  });
+  const firstDateKey = cells[0]?.dateKey || rowStart;
+  const lastDateKey = cells.at(-1)?.dateKey || rowStart;
+
+  return {
+    mode: "week",
+    key: rowStart,
+    label: formatWeekLabel(firstDateKey, lastDateKey),
+    previousKey: addDays(rowStart, -7),
+    nextKey: addDays(rowStart, 7),
+    queryParamKey: "week",
+    anchorDateKey: rowStart,
+    columns,
+    weeks: [
+      {
+        key: rowStart,
+        cells,
+      },
+    ],
+  };
+}
+
+type CalendarFeedRequest = {
+  monthKey?: string;
+  viewMode?: CalendarViewMode;
+  weekKey?: string;
+};
+
+function resolveCalendarFeedRequest(
+  requestOrMonthKey?: string | CalendarFeedRequest,
+): CalendarFeedRequest {
+  if (!requestOrMonthKey) {
+    return {};
+  }
+
+  if (typeof requestOrMonthKey === "string") {
+    return { monthKey: requestOrMonthKey };
+  }
+
+  return requestOrMonthKey;
+}
+
+function buildCalendarView(
+  events: CalendarEvent[],
+  options: {
+    monthKey?: string;
+    viewMode: CalendarViewMode;
+    weekKey?: string;
+    timeZone: string;
+    columns: CalendarGridColumn[];
+  },
+) {
+  if (options.viewMode === "week") {
+    const weekKey = getResolvedDateKey(options.weekKey, options.timeZone);
+    return buildWeekView(events, weekKey, options.timeZone, options.columns);
+  }
+
+  const monthKey = getResolvedMonthKey(options.monthKey, options.timeZone);
+  return buildMonthView(events, monthKey, options.timeZone, options.columns);
+}
+
+function getVisibleFeedRange(
+  options: {
+    monthKey?: string;
+    viewMode: CalendarViewMode;
+    weekKey?: string;
+    timeZone: string;
+    columns: CalendarGridColumn[];
+  },
+) {
+  if (options.viewMode === "week") {
+    const weekKey = getResolvedDateKey(options.weekKey, options.timeZone);
+    const rowStart = getWeekStartDateKey(weekKey, 1);
+
+    return {
+      firstVisible: rowStart,
+      lastVisible: addDays(rowStart, 6),
+    };
+  }
+
+  const monthKey = getResolvedMonthKey(options.monthKey, options.timeZone);
+  return getVisibleMonthRange(monthKey, options.columns);
 }
 
 function buildFeed(
@@ -1233,10 +1414,19 @@ function buildFeed(
     errors: string[];
     timeZone: string;
     monthKey?: string;
+    viewMode: CalendarViewMode;
+    weekKey?: string;
     sources: CalendarSourceSummary[];
   },
 ): CalendarFeed {
-  const monthKey = getResolvedMonthKey(options.monthKey, options.timeZone);
+  const columns = parseDisplayDays();
+  const view = buildCalendarView(events, {
+    monthKey: options.monthKey,
+    viewMode: options.viewMode,
+    weekKey: options.weekKey,
+    timeZone: options.timeZone,
+    columns,
+  });
 
   return {
     brandName: getBrandName(),
@@ -1253,7 +1443,8 @@ function buildFeed(
     errors: options.errors,
     timeZone: options.timeZone,
     generatedAt: new Date().toISOString(),
-    month: buildMonthView(events, monthKey, options.timeZone, parseDisplayDays()),
+    viewMode: options.viewMode,
+    month: view,
     sources: options.sources,
   };
 }
@@ -1265,15 +1456,24 @@ export function getCalendarEventTime(
   return formatTimeRange(event.startsAt, event.endsAt, event.allDay, timeZone);
 }
 
-export async function getCalendarFeed(monthKey?: string): Promise<CalendarFeed> {
+export async function getCalendarFeed(
+  requestOrMonthKey?: string | CalendarFeedRequest,
+): Promise<CalendarFeed> {
+  const request = resolveCalendarFeedRequest(requestOrMonthKey);
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY?.trim();
   const sources = getSources();
   const configuredTimeZone = getConfiguredTimeZone();
   const hasLiveConfig = Boolean(apiKey && sources.length > 0);
   const baseTimeZone = configuredTimeZone || DEFAULT_TIME_ZONE;
-  const resolvedMonthKey = getResolvedMonthKey(monthKey, baseTimeZone);
+  const viewMode = request.viewMode === "week" ? "week" : "month";
   const columns = parseDisplayDays();
-  const visibleRange = getVisibleMonthRange(resolvedMonthKey, columns);
+  const visibleRange = getVisibleFeedRange({
+    monthKey: request.monthKey,
+    viewMode,
+    weekKey: request.weekKey,
+    timeZone: baseTimeZone,
+    columns,
+  });
 
   if (!hasLiveConfig) {
     const timeZone = baseTimeZone;
@@ -1286,7 +1486,9 @@ export async function getCalendarFeed(monthKey?: string): Promise<CalendarFeed> 
       hasLiveConfig: false,
       errors: [],
       timeZone,
-      monthKey: resolvedMonthKey,
+      monthKey: request.monthKey,
+      viewMode,
+      weekKey: request.weekKey,
       sources: mockEvents.length
         ? [
             {
@@ -1321,7 +1523,9 @@ export async function getCalendarFeed(monthKey?: string): Promise<CalendarFeed> 
       hasLiveConfig: true,
       errors: [],
       timeZone,
-      monthKey: resolvedMonthKey,
+      monthKey: request.monthKey,
+      viewMode,
+      weekKey: request.weekKey,
       sources: results.map((result) => ({
         id: result.sourceId,
         label: result.label,
@@ -1342,7 +1546,9 @@ export async function getCalendarFeed(monthKey?: string): Promise<CalendarFeed> 
       hasLiveConfig: true,
       errors: [message],
       timeZone,
-      monthKey: resolvedMonthKey,
+      monthKey: request.monthKey,
+      viewMode,
+      weekKey: request.weekKey,
       sources: [
         {
           id: "mock-calendar",

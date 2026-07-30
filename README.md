@@ -28,8 +28,11 @@ This project keeps Google Calendar as the source of truth, but replaces the stoc
 - Revalidates every 5 minutes so Railway can serve cached event data without redeploys.
 - Normalizes live Google events into store categories like Magic, Pokemon, Lorcana, Marvel, Riftbound, and more.
 - Renders a month-level event grid tuned to the store's Thursday through Sunday event cadence.
+- Renders a dedicated one-row weekly view for the upcoming Thursday through Sunday store window, including cross-month weeks.
 - Supports month navigation with `?month=YYYY-MM` on both `/` and `/embed`.
+- Supports week navigation with `?week=YYYY-MM-DD` on `/week` and `/week/image`.
 - Exposes a JSON feed at `/api/events` for debugging or future integrations.
+- Exposes a Discord-ready weekly image at `/week/image` and a webhook trigger at `/api/discord/weekly`.
 - Falls back to sample events when credentials are missing.
 - Returns HTTP `503` from `/api/events` when live Google credentials exist but the live fetch fails, so deployment health checks can catch real feed problems.
 
@@ -98,17 +101,24 @@ Other useful settings:
 - `NEXT_PUBLIC_EMBED_TITLE`: header title shown above the event grid.
 - `NEXT_PUBLIC_EMBED_SUBTITLE`: supporting copy shown below the month heading.
 - `NEXT_PUBLIC_CALENDAR_URL`: outbound link target for the "Open Google Calendar" action.
+- `DISCORD_WEEKLY_WEBHOOK_URL`: Discord webhook used by `/api/discord/weekly` to post the weekly image.
+- `DISCORD_WEEKLY_POST_SECRET`: optional bearer or `x-calendar-post-secret` value required by the weekly Discord route.
 
 ## Routes
 
 - `/`: operator preview page with live status cards and the full calendar preview.
 - `/embed`: iframe-safe calendar surface for the main website.
-- `/api/events`: raw event feed with month query support.
+- `/week`: single-row weekly preview tuned for the Thursday-through-Sunday store week.
+- `/week/image`: PNG rendering of the weekly view for Discord uploads.
+- `/api/events`: raw event feed with month and week query support.
+- `/api/discord/weekly`: GET preview payload and POST trigger for weekly Discord uploads.
 
 Examples:
 
 - `/embed?month=2026-07`
 - `/api/events?month=2026-07`
+- `/week?week=2026-07-27`
+- `/api/events?view=week&week=2026-07-27`
 
 ## Railway notes
 
@@ -116,6 +126,7 @@ Examples:
 - Set the same environment variables in Railway.
 - Use `/embed` as the route you iframe into the main website.
 - Use `/api/events` as the health/data check route.
+- Schedule a Monday POST to `/api/discord/weekly` once `DISCORD_WEEKLY_WEBHOOK_URL` is configured.
 - If Google Calendar credentials are configured but the live fetch breaks, `/api/events` now returns `503` instead of quietly looking healthy.
 
 ## What is still worth improving
