@@ -14,6 +14,10 @@ function getDiscordWebhookUrl() {
   return process.env.DISCORD_WEEKLY_WEBHOOK_URL?.trim();
 }
 
+function getDiscordTestWebhookUrl() {
+  return process.env.DISCORD_WEEKLY_TEST_WEBHOOK_URL?.trim();
+}
+
 function getPostingSecret() {
   return process.env.DISCORD_WEEKLY_POST_SECRET?.trim();
 }
@@ -36,6 +40,18 @@ function getWebhookUrlWithWait(rawUrl: string) {
   return url.toString();
 }
 
+function resolveWebhookTarget(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const rawTarget = searchParams.get("target")?.trim().toLowerCase();
+  const useTestWebhook = rawTarget === "test" || searchParams.get("test") === "1";
+
+  return {
+    weekKey: searchParams.get("week") || undefined,
+    target: useTestWebhook ? "test" : "live",
+    webhookUrl: useTestWebhook ? getDiscordTestWebhookUrl() : getDiscordWebhookUrl(),
+  } as const;
+}
+
 async function getWeeklyAssets(weekKey?: string) {
   const feed = await getCalendarFeed({
     viewMode: "week",
@@ -55,8 +71,7 @@ async function getWeeklyAssets(weekKey?: string) {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const weekKey = searchParams.get("week") || undefined;
+  const { weekKey, target, webhookUrl } = resolveWebhookTarget(request);
   const feed = await getCalendarFeed({
     viewMode: "week",
     weekKey,
@@ -67,7 +82,8 @@ export async function GET(request: Request) {
     label: feed.month.label,
     content: buildWeeklyDiscordMessage(feed),
     imagePath: `/week/image${weekKey ? `?week=${encodeURIComponent(weekKey)}` : ""}`,
-    webhookConfigured: Boolean(getDiscordWebhookUrl()),
+    target,
+    webhookConfigured: Boolean(webhookUrl),
     authRequired: Boolean(getPostingSecret()),
   });
 }
@@ -77,16 +93,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const webhookUrl = getDiscordWebhookUrl();
+  const { weekKey, target, webhookUrl } = resolveWebhookTarget(request);
   if (!webhookUrl) {
     return NextResponse.json(
-      { error: "DISCORD_WEEKLY_WEBHOOK_URL is not configured." },
+      {
+        error:
+          target === "test"
+            ? "DISCORD_WEEKLY_TEST_WEBHOOK_URL is not configured."
+            : "DISCORD_WEEKLY_WEBHOOK_URL is not configured.",
+      },
       { status: 500 },
     );
   }
-
-  const { searchParams } = new URL(request.url);
-  const weekKey = searchParams.get("week") || undefined;
   const { feed, imageBlob, filename, content } = await getWeeklyAssets(weekKey);
   const formData = new FormData();
 
@@ -119,6 +137,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
+    target,
     weekKey: feed.month.key,
     label: feed.month.label,
     filename,

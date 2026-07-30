@@ -102,6 +102,7 @@ Other useful settings:
 - `NEXT_PUBLIC_EMBED_SUBTITLE`: supporting copy shown below the month heading.
 - `NEXT_PUBLIC_CALENDAR_URL`: outbound link target for the "Open Google Calendar" action.
 - `DISCORD_WEEKLY_WEBHOOK_URL`: Discord webhook used by `/api/discord/weekly` to post the weekly image.
+- `DISCORD_WEEKLY_TEST_WEBHOOK_URL`: optional Discord webhook used by `/api/discord/weekly?target=test` for safe test sends.
 - `DISCORD_WEEKLY_POST_SECRET`: optional bearer or `x-calendar-post-secret` value required by the weekly Discord route.
 - `WEEKLY_DISCORD_BASE_URL`: deployed app base URL used by the local helper scripts, for example `https://your-app.up.railway.app`.
 
@@ -142,8 +143,10 @@ Examples:
 ```bash
 npm run discord:weekly:preview
 npm run discord:weekly:post
+npm run discord:weekly:test
 npm run discord:weekly:preview -- --week=2026-07-27
 npm run discord:weekly:post -- --week=2026-07-27
+npm run discord:weekly:preview -- --test --week=2026-07-27
 ```
 
 You can also override the target URL for a one-off run:

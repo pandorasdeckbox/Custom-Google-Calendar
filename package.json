@@ -10,6 +10,7 @@
     "lint": "eslint",
     "discord:weekly:preview": "node scripts/weekly-discord.mjs preview",
     "discord:weekly:post": "node scripts/weekly-discord.mjs post",
+    "discord:weekly:test": "node scripts/weekly-discord.mjs post --test",
     "discord:weekly:install-agent": "/bin/zsh ./scripts/install-weekly-discord-launch-agent.sh",
     "discord:weekly:uninstall-agent": "/bin/zsh ./scripts/uninstall-weekly-discord-launch-agent.sh"
   },

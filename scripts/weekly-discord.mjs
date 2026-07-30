@@ -15,6 +15,7 @@ Commands:
 Options:
   --week=YYYY-MM-DD   Optional Monday anchor date for the weekly view.
   --base-url=URL      Override WEEKLY_DISCORD_BASE_URL for one run.
+  --test              Use the deployed test webhook target instead of the live announcement webhook.
   --help              Show this help.
 
 Environment:
@@ -114,6 +115,11 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (token === "--test") {
+      options.test = true;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${token}`);
   }
 
@@ -144,11 +150,15 @@ function getBaseUrl(baseUrlOverride) {
   return normalizeBaseUrl(candidate);
 }
 
-function buildApiUrl(baseUrl, week) {
+function buildApiUrl(baseUrl, week, useTestTarget) {
   const url = new URL("/api/discord/weekly", baseUrl);
 
   if (week) {
     url.searchParams.set("week", week);
+  }
+
+  if (useTestTarget) {
+    url.searchParams.set("target", "test");
   }
 
   return url;
@@ -194,8 +204,8 @@ function printPostResult(data, targetUrl) {
   console.log(`Discord status: ${data.discordStatus}`);
 }
 
-async function runPreview(baseUrl, week) {
-  const url = buildApiUrl(baseUrl, week);
+async function runPreview(baseUrl, week, useTestTarget) {
+  const url = buildApiUrl(baseUrl, week, useTestTarget);
   const response = await fetch(url);
   const data = await readJsonResponse(response);
 
@@ -206,8 +216,8 @@ async function runPreview(baseUrl, week) {
   printPreview(data, url.toString(), baseUrl);
 }
 
-async function runPost(baseUrl, week) {
-  const url = buildApiUrl(baseUrl, week);
+async function runPost(baseUrl, week, useTestTarget) {
+  const url = buildApiUrl(baseUrl, week, useTestTarget);
   const response = await fetch(url, {
     method: "POST",
     headers: getPostHeaders(),
@@ -237,11 +247,11 @@ async function main() {
   const baseUrl = getBaseUrl(options.baseUrl);
 
   if (command === "preview") {
-    await runPreview(baseUrl, options.week);
+    await runPreview(baseUrl, options.week, options.test === true);
     return;
   }
 
-  await runPost(baseUrl, options.week);
+  await runPost(baseUrl, options.week, options.test === true);
 }
 
 main().catch((error) => {

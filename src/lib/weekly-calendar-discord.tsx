@@ -155,18 +155,6 @@ function getImageEventMeta(event: CalendarEvent, timeZone: string) {
   return getCalendarEventTime(event, timeZone).startsAt;
 }
 
-function getEventBadgeLabel(event: CalendarEvent | null) {
-  if (!event) {
-    return "OPEN";
-  }
-
-  if (event.isClosed) {
-    return "!";
-  }
-
-  return CATEGORY_STYLES[event.category].shortLabel;
-}
-
 function getEventCategoryLabel(event: CalendarEvent | null) {
   if (!event) {
     return "Open Slot";
@@ -436,7 +424,6 @@ export async function buildWeeklyCalendarImageResponse(feed: CalendarFeed) {
             }}
           >
             {cells.map((cell, index) => {
-              const activeEvent = cell.primaryEvent;
               const bodyTextColor = getCardBodyTextColor(cell);
               const cardTitleColor = getCardTitleColor(cell);
               const cardSubtitleColor = getCardSubtitleColor(cell);
@@ -494,7 +481,7 @@ export async function buildWeeklyCalendarImageResponse(feed: CalendarFeed) {
                       style={{
                         width: "100%",
                         display: "flex",
-                        justifyContent: "space-between",
+                        justifyContent: "flex-start",
                         alignItems: "flex-start",
                       }}
                     >
@@ -530,27 +517,6 @@ export async function buildWeeklyCalendarImageResponse(feed: CalendarFeed) {
                         >
                           {dayLabel}
                         </div>
-                      </div>
-
-                      <div
-                        style={{
-                          width: 50,
-                          height: 50,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          borderRadius: 999,
-                          background: "rgba(255, 255, 255, 0.9)",
-                          color: activeEvent?.isClosed ? "#4e3f39" : "#180f0f",
-                          boxShadow: "0 10px 20px rgba(0, 0, 0, 0.12)",
-                          fontFamily: "Sora",
-                          fontSize: 15,
-                          fontWeight: 800,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {getEventBadgeLabel(activeEvent)}
                       </div>
                     </div>
                   </div>
