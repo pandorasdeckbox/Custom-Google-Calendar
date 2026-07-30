@@ -167,16 +167,25 @@ function getEventCategoryLabel(event: CalendarEvent | null) {
   return CATEGORY_STYLES[event.category].label;
 }
 
-function getCardBodyBackground(cell: CalendarGridCell) {
+function getCardBodyBackgroundStyle(cell: CalendarGridCell) {
   if (cell.isClosed) {
-    return "repeating-linear-gradient(-45deg, rgba(229, 229, 226, 0.96) 0 12px, rgba(255, 255, 255, 0.98) 12px 24px)";
+    return {
+      backgroundColor: "rgba(255, 255, 255, 0.98)",
+      backgroundImage:
+        "linear-gradient(-45deg, rgba(229, 229, 226, 0.96) 25%, rgba(255, 255, 255, 0.98) 25%, rgba(255, 255, 255, 0.98) 50%, rgba(229, 229, 226, 0.96) 50%, rgba(229, 229, 226, 0.96) 75%, rgba(255, 255, 255, 0.98) 75%, rgba(255, 255, 255, 0.98) 100%)",
+      backgroundSize: "24px 24px",
+    };
   }
 
   if (!cell.primaryEvent) {
-    return "linear-gradient(180deg, rgba(84, 74, 67, 0.32), rgba(64, 56, 51, 0.82))";
+    return {
+      background: "linear-gradient(180deg, rgba(84, 74, 67, 0.32), rgba(64, 56, 51, 0.82))",
+    };
   }
 
-  return getImageCardAccent(cell);
+  return {
+    background: getImageCardAccent(cell),
+  };
 }
 
 function getCardBodyTextColor(cell: CalendarGridCell) {
@@ -465,7 +474,7 @@ export async function buildWeeklyCalendarImageResponse(feed: CalendarFeed) {
                       top: cardHeaderHeight,
                       bottom: 0,
                       display: "flex",
-                      background: getCardBodyBackground(cell),
+                      ...getCardBodyBackgroundStyle(cell),
                     }}
                   />
 
