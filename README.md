@@ -151,6 +151,7 @@ DISCORD_WEEKLY_POST_SECRET=your-shared-secret
 Examples:
 
 ```bash
+npm run discord:monthly -- --month=2026-07
 npm run discord:monthly:preview
 npm run discord:monthly:post
 npm run discord:monthly:test

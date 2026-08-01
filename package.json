@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "discord:monthly": "node scripts/monthly-discord.mjs post",
     "discord:monthly:preview": "node scripts/monthly-discord.mjs preview",
     "discord:monthly:post": "node scripts/monthly-discord.mjs post",
     "discord:monthly:test": "node scripts/monthly-discord.mjs post --test",
