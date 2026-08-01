@@ -9,6 +9,7 @@ import {
 
 export const runtime = "nodejs";
 export const revalidate = 300;
+const DISCORD_POST_TIMEOUT_MS = 15000;
 
 function getDiscordWebhookUrl() {
   return process.env.DISCORD_WEEKLY_WEBHOOK_URL?.trim();
@@ -32,12 +33,6 @@ function isAuthorized(request: Request) {
   }
 
   return request.headers.get("x-calendar-post-secret")?.trim() === secret;
-}
-
-function getWebhookUrlWithWait(rawUrl: string) {
-  const url = new URL(rawUrl);
-  url.searchParams.set("wait", "true");
-  return url.toString();
 }
 
 function resolveWebhookTarget(request: Request) {
@@ -117,10 +112,25 @@ export async function POST(request: Request) {
   );
   formData.set("files[0]", imageBlob, filename);
 
-  const discordResponse = await fetch(getWebhookUrlWithWait(webhookUrl), {
-    method: "POST",
-    body: formData,
-  });
+  let discordResponse: Response;
+
+  try {
+    discordResponse = await fetch(webhookUrl, {
+      method: "POST",
+      body: formData,
+      signal: AbortSignal.timeout(DISCORD_POST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    return NextResponse.json(
+      {
+        error: "Discord webhook request timed out or failed.",
+        details: message,
+      },
+      { status: 504 },
+    );
+  }
 
   if (!discordResponse.ok) {
     const errorText = await discordResponse.text();
