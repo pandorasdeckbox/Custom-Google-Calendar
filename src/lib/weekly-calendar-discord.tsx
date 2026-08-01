@@ -19,6 +19,7 @@ const TITLE_HEIGHT = 82;
 const TITLE_TO_WEEKDAY_GAP = 16;
 const WEEKDAY_HEIGHT = 52;
 const WEEKDAY_TO_CARD_GAP = 18;
+const CALENDAR_ROW_GAP = 18;
 const WHITE_HEADER_HEIGHT = 136;
 const CARD_SIDE_PADDING = 20;
 const BODY_EDGE_PADDING = 14;
@@ -91,6 +92,10 @@ function loadImageFonts() {
 
 function getWeeklyCells(feed: CalendarFeed) {
   return feed.month.weeks[0]?.cells || [];
+}
+
+function getMonthlyRows(feed: CalendarFeed) {
+  return feed.month.weeks.map((week) => week.cells);
 }
 
 function formatCellHeading(dateKey: string, weekdayLabel: string) {
@@ -284,6 +289,265 @@ function getVisibleDayStackHeight(cell: CalendarGridCell) {
   }, 0);
 }
 
+function getSharedCardHeight(cells: CalendarGridCell[]) {
+  const tallestMultiEventStackHeight = Math.max(0, ...cells.map(getVisibleDayStackHeight));
+  const requiredBodyHeight = STACKED_EVENT_OUTER_PADDING * 2 + tallestMultiEventStackHeight;
+
+  return Math.max(SINGLE_DAY_MIN_CARD_HEIGHT, WHITE_HEADER_HEIGHT + requiredBodyHeight);
+}
+
+function renderDiscordEventCards(
+  cell: CalendarGridCell,
+  timeZone: string,
+  titleColor: string,
+  subtitleColor: string,
+) {
+  const visibleEvents = cell.events.length > 0 ? cell.events : [null];
+  const usesStackedCards = visibleEvents.length > 1;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: CARD_SIDE_PADDING,
+        right: CARD_SIDE_PADDING,
+        top: WHITE_HEADER_HEIGHT + (usesStackedCards ? STACKED_EVENT_OUTER_PADDING : BODY_EDGE_PADDING),
+        bottom: usesStackedCards ? STACKED_EVENT_OUTER_PADDING : BODY_EDGE_PADDING,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+        color: getCardBodyTextColor(cell),
+        gap: EVENT_STACK_GAP,
+      }}
+    >
+      {visibleEvents.map((event, eventIndex) => {
+        const categoryLabel = getEventCategoryLabel(event);
+        const eventIsClosed = Boolean(event?.isClosed);
+        const eventHasCard = visibleEvents.length > 1;
+        const hasPaidBadge = hasPaidEntry(event);
+        const eventMeta = event ? getImageEventMeta(event, timeZone) : "Open window";
+        const detailMaxWidth = eventHasCard ? (hasPaidBadge ? 224 : 268) : 316;
+        const pillMaxWidth = eventHasCard ? (hasPaidBadge ? 196 : 240) : 300;
+
+        return (
+          <div
+            key={event?.id ?? `${cell.key}-empty-${eventIndex}`}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-start",
+              position: "relative",
+              ...(eventHasCard ? { minHeight: estimateStackedEventCardHeight(event) } : {}),
+              padding: eventHasCard ? "14px 16px 14px" : "0px",
+              borderRadius: eventHasCard ? 20 : 0,
+              background: eventHasCard
+                ? eventIsClosed
+                  ? "rgba(248, 246, 242, 0.82)"
+                  : "rgba(17, 12, 12, 0.14)"
+                : "transparent",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                width: "100%",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  alignSelf: "flex-start",
+                  maxWidth: pillMaxWidth,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  border: eventIsClosed
+                    ? "1px solid rgba(78, 63, 57, 0.22)"
+                    : "1px solid rgba(255, 255, 255, 0.16)",
+                  background: eventIsClosed
+                    ? "rgba(248, 246, 242, 0.96)"
+                    : "rgba(255, 255, 255, 0.16)",
+                  color: eventIsClosed ? "#4e3f39" : "#fff8f1",
+                  fontFamily: "Sora",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {categoryLabel}
+              </div>
+
+              {hasPaidBadge ? (
+                <div
+                  style={{
+                    width: 34,
+                    minWidth: 34,
+                    height: 34,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 999,
+                    background: "#ffffff",
+                    color: "#111111",
+                    boxShadow: "0 12px 22px rgba(0, 0, 0, 0.18)",
+                    fontFamily: "Bree Serif",
+                    fontSize: 20,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                  }}
+                >
+                  $
+                </div>
+              ) : null}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                marginTop: 12,
+                maxWidth: detailMaxWidth,
+                fontFamily: "Bree Serif",
+                fontSize: eventIsClosed ? 52 : event && !event.allDay ? 30 : 32,
+                lineHeight: eventIsClosed ? 0.9 : 0.94,
+                color: eventIsClosed ? "#c31c13" : titleColor,
+                textShadow: eventIsClosed ? "none" : "0 6px 18px rgba(0, 0, 0, 0.24)",
+              }}
+            >
+              {event ? event.title : "No Featured Event"}
+            </div>
+
+            {eventMeta ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginTop: 12,
+                  fontFamily: "Morally Serif",
+                  fontSize: 32,
+                  lineHeight: 0.88,
+                  color: subtitleColor,
+                }}
+              >
+                {eventMeta}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderDiscordCalendarCard(
+  cell: CalendarGridCell,
+  options: {
+    dayLabel: string;
+    timeZone: string;
+    cardHeight: number;
+  },
+) {
+  const cardTitleColor = getCardTitleColor(cell);
+  const cardSubtitleColor = getCardSubtitleColor(cell);
+
+  return (
+    <div
+      key={cell.key}
+      style={{
+        width: 360,
+        height: options.cardHeight,
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        borderRadius: 28,
+        overflow: "hidden",
+        border: `1px solid ${getImageCardBorder(cell)}`,
+        background: `linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0 ${WHITE_HEADER_HEIGHT}px, rgba(249, 245, 239, 0.98) ${WHITE_HEADER_HEIGHT}px 100%)`,
+        boxShadow: cell.isToday
+          ? "0 22px 56px rgba(0, 0, 0, 0.35)"
+          : "0 16px 40px rgba(0, 0, 0, 0.28)",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          background: "linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 30%)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: WHITE_HEADER_HEIGHT,
+          bottom: 0,
+          display: "flex",
+          ...getCardBodyBackgroundStyle(cell),
+        }}
+      />
+
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          display: "flex",
+          padding: CARD_SIDE_PADDING,
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "flex-start",
+            alignItems: "flex-start",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "Morally Serif",
+                fontSize: 72,
+                lineHeight: 0.82,
+                color: "#180f0f",
+              }}
+            >
+              {formatDayNumber(cell.dateKey)}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                marginTop: 8,
+                fontFamily: "Sora",
+                fontSize: 14,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "rgba(24, 15, 15, 0.56)",
+              }}
+            >
+              {options.dayLabel}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {renderDiscordEventCards(cell, options.timeZone, cardTitleColor, cardSubtitleColor)}
+    </div>
+  );
+}
+
 export function buildWeeklyDiscordMessage(feed: CalendarFeed) {
   const cells = getWeeklyCells(feed);
   const lines = [
@@ -303,27 +567,38 @@ export function buildWeeklyDiscordMessage(feed: CalendarFeed) {
   return lines.join("\n");
 }
 
+export function buildMonthlyDiscordMessage(feed: CalendarFeed) {
+  return [
+    `## ${feed.brandName} Monthly Event Board`,
+    `### ${feed.month.label}`,
+    `Full calendar: <${getFullCalendarUrl()}>`,
+  ].join("\n");
+}
+
 export function buildWeeklyImageFilename(feed: CalendarFeed) {
   return `calendar-week-${feed.month.key}.png`;
 }
 
-export async function buildWeeklyCalendarImageResponse(feed: CalendarFeed) {
-  const cells = getWeeklyCells(feed);
+export function buildMonthlyImageFilename(feed: CalendarFeed) {
+  return `calendar-month-${feed.month.key}.png`;
+}
+
+async function buildCalendarImageResponse(
+  feed: CalendarFeed,
+  mode: "week" | "month",
+) {
+  const rows = mode === "month" ? getMonthlyRows(feed) : [getWeeklyCells(feed)];
   const fonts = await loadImageFonts();
-  const tallestMultiEventStackHeight = Math.max(0, ...cells.map(getVisibleDayStackHeight));
-  const requiredBodyHeight = STACKED_EVENT_OUTER_PADDING * 2 + tallestMultiEventStackHeight;
-  const sharedCardHeight = Math.max(
-    SINGLE_DAY_MIN_CARD_HEIGHT,
-    WHITE_HEADER_HEIGHT + requiredBodyHeight,
-  );
-  const cardHeaderHeight = WHITE_HEADER_HEIGHT;
+  const rowHeights = rows.map((cells) => getSharedCardHeight(cells.filter((cell) => cell.isCurrentMonth)));
+  const visibleRowCount = rowHeights.length;
   const imageHeight =
     IMAGE_TOP_PADDING +
     TITLE_HEIGHT +
     TITLE_TO_WEEKDAY_GAP +
     WEEKDAY_HEIGHT +
     WEEKDAY_TO_CARD_GAP +
-    sharedCardHeight +
+    rowHeights.reduce((total, height) => total + height, 0) +
+    Math.max(visibleRowCount - 1, 0) * CALENDAR_ROW_GAP +
     IMAGE_BOTTOM_PADDING;
 
   return new ImageResponse(
@@ -427,261 +702,43 @@ export async function buildWeeklyCalendarImageResponse(feed: CalendarFeed) {
             style={{
               width: "100%",
               display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
+              flexDirection: "column",
+              gap: CALENDAR_ROW_GAP,
               marginTop: 4,
             }}
           >
-            {cells.map((cell, index) => {
-              const bodyTextColor = getCardBodyTextColor(cell);
-              const cardTitleColor = getCardTitleColor(cell);
-              const cardSubtitleColor = getCardSubtitleColor(cell);
-              const dayLabel = feed.month.columns[index]?.shortLabel || "Day";
-              const visibleEvents = cell.events.length > 0 ? cell.events : [null];
-              const usesStackedCards = visibleEvents.length > 1;
-
-              return (
-                <div
-                  key={cell.key}
-                  style={{
-                    width: 360,
-                    height: sharedCardHeight,
-                    display: "flex",
-                    flexDirection: "column",
-                    position: "relative",
-                    borderRadius: 28,
-                    overflow: "hidden",
-                    border: `1px solid ${getImageCardBorder(cell)}`,
-                    background: `linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0 ${cardHeaderHeight}px, rgba(249, 245, 239, 0.98) ${cardHeaderHeight}px 100%)`,
-                    boxShadow: cell.isToday
-                      ? "0 22px 56px rgba(0, 0, 0, 0.35)"
-                      : "0 16px 40px rgba(0, 0, 0, 0.28)",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      background: "linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 30%)",
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      right: 0,
-                      top: cardHeaderHeight,
-                      bottom: 0,
-                      display: "flex",
-                      ...getCardBodyBackgroundStyle(cell),
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      display: "flex",
-                      padding: CARD_SIDE_PADDING,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        justifyContent: "flex-start",
-                        alignItems: "flex-start",
-                      }}
-                    >
+            {rows.map((cells, rowIndex) => (
+              <div
+                key={`${mode}-${rowIndex}`}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                }}
+              >
+                {cells.map((cell, cellIndex) => {
+                  if (mode === "month" && !cell.isCurrentMonth) {
+                    return (
                       <div
+                        key={cell.key}
                         style={{
+                          width: 360,
+                          height: rowHeights[rowIndex],
                           display: "flex",
-                          flexDirection: "column",
-                          alignItems: "flex-start",
                         }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            fontFamily: "Morally Serif",
-                            fontSize: 72,
-                            lineHeight: 0.82,
-                            color: "#180f0f",
-                          }}
-                        >
-                          {formatDayNumber(cell.dateKey)}
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            marginTop: 8,
-                            fontFamily: "Sora",
-                            fontSize: 14,
-                            fontWeight: 700,
-                            letterSpacing: "0.08em",
-                            textTransform: "uppercase",
-                            color: "rgba(24, 15, 15, 0.56)",
-                          }}
-                        >
-                          {dayLabel}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                      />
+                    );
+                  }
 
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: CARD_SIDE_PADDING,
-                      right: CARD_SIDE_PADDING,
-                      top:
-                        cardHeaderHeight +
-                        (usesStackedCards ? STACKED_EVENT_OUTER_PADDING : BODY_EDGE_PADDING),
-                      bottom: usesStackedCards ? STACKED_EVENT_OUTER_PADDING : BODY_EDGE_PADDING,
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "flex-end",
-                      color: bodyTextColor,
-                      gap: EVENT_STACK_GAP,
-                    }}
-                  >
-                      {visibleEvents.map((event, eventIndex) => {
-                        const categoryLabel = getEventCategoryLabel(event);
-                        const eventIsClosed = Boolean(event?.isClosed);
-                        const eventHasCard = visibleEvents.length > 1;
-                        const hasPaidBadge = hasPaidEntry(event);
-                        const eventMeta = event ? getImageEventMeta(event, feed.timeZone) : "Open window";
-                        const detailMaxWidth = eventHasCard
-                          ? hasPaidBadge
-                            ? 224
-                            : 268
-                          : 316;
-                        const pillMaxWidth = eventHasCard
-                          ? hasPaidBadge
-                            ? 196
-                            : 240
-                          : 300;
-
-                        return (
-                          <div
-                            key={event?.id ?? `${cell.key}-empty-${eventIndex}`}
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "flex-start",
-                              position: "relative",
-                              ...(eventHasCard
-                                ? { minHeight: estimateStackedEventCardHeight(event) }
-                                : {}),
-                              padding: eventHasCard ? "14px 16px 14px" : "0px",
-                              borderRadius: eventHasCard ? 20 : 0,
-                              background: eventHasCard
-                                ? eventIsClosed
-                                  ? "rgba(248, 246, 242, 0.82)"
-                                  : "rgba(17, 12, 12, 0.14)"
-                                : "transparent",
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                gap: 12,
-                                width: "100%",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  alignSelf: "flex-start",
-                                  maxWidth: pillMaxWidth,
-                                  padding: "6px 12px",
-                                  borderRadius: 999,
-                                  border: eventIsClosed
-                                    ? "1px solid rgba(78, 63, 57, 0.22)"
-                                    : "1px solid rgba(255, 255, 255, 0.16)",
-                                  background: eventIsClosed
-                                    ? "rgba(248, 246, 242, 0.96)"
-                                    : "rgba(255, 255, 255, 0.16)",
-                                  color: eventIsClosed ? "#4e3f39" : "#fff8f1",
-                                  fontFamily: "Sora",
-                                  fontSize: 12,
-                                  fontWeight: 800,
-                                  letterSpacing: "0.08em",
-                                  textTransform: "uppercase",
-                                }}
-                              >
-                                {categoryLabel}
-                              </div>
-
-                              {hasPaidBadge ? (
-                                <div
-                                  style={{
-                                    width: 34,
-                                    minWidth: 34,
-                                    height: 34,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    borderRadius: 999,
-                                    background: "#ffffff",
-                                    color: "#111111",
-                                    boxShadow: "0 12px 22px rgba(0, 0, 0, 0.18)",
-                                    fontFamily: "Bree Serif",
-                                    fontSize: 20,
-                                    fontWeight: 700,
-                                    lineHeight: 1,
-                                  }}
-                                >
-                                  $
-                                </div>
-                              ) : null}
-                            </div>
-
-                            <div
-                              style={{
-                                display: "flex",
-                                marginTop: 12,
-                                maxWidth: detailMaxWidth,
-                                fontFamily: "Bree Serif",
-                                fontSize: eventIsClosed
-                                  ? 52
-                                  : event && !event.allDay
-                                    ? 30
-                                    : 32,
-                                lineHeight: eventIsClosed ? 0.9 : 0.94,
-                                color: eventIsClosed ? "#c31c13" : cardTitleColor,
-                                textShadow: eventIsClosed ? "none" : "0 6px 18px rgba(0, 0, 0, 0.24)",
-                              }}
-                            >
-                              {event ? event.title : "No Featured Event"}
-                            </div>
-
-                            {eventMeta ? (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  marginTop: 12,
-                                  fontFamily: "Morally Serif",
-                                  fontSize: 32,
-                                  lineHeight: 0.88,
-                                  color: cardSubtitleColor,
-                                }}
-                              >
-                                {eventMeta}
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              );
-            })}
+                  return renderDiscordCalendarCard(cell, {
+                    dayLabel: feed.month.columns[cellIndex]?.shortLabel || "Day",
+                    timeZone: feed.timeZone,
+                    cardHeight: rowHeights[rowIndex],
+                  });
+                })}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -726,4 +783,12 @@ export async function buildWeeklyCalendarImageResponse(feed: CalendarFeed) {
       ],
     },
   );
+}
+
+export async function buildWeeklyCalendarImageResponse(feed: CalendarFeed) {
+  return buildCalendarImageResponse(feed, "week");
+}
+
+export async function buildMonthlyCalendarImageResponse(feed: CalendarFeed) {
+  return buildCalendarImageResponse(feed, "month");
 }

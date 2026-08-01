@@ -32,7 +32,9 @@ This project keeps Google Calendar as the source of truth, but replaces the stoc
 - Supports month navigation with `?month=YYYY-MM` on both `/` and `/embed`.
 - Supports week navigation with `?week=YYYY-MM-DD` on `/week` and `/week/image`.
 - Exposes a JSON feed at `/api/events` for debugging or future integrations.
+- Exposes a Discord-ready monthly image at `/month/image`.
 - Exposes a Discord-ready weekly image at `/week/image` and a webhook trigger at `/api/discord/weekly`.
+- Exposes a Discord-ready monthly webhook trigger at `/api/discord/monthly`.
 - Falls back to sample events when credentials are missing.
 - Returns HTTP `503` from `/api/events` when live Google credentials exist but the live fetch fails, so deployment health checks can catch real feed problems.
 
@@ -101,6 +103,10 @@ Other useful settings:
 - `NEXT_PUBLIC_EMBED_TITLE`: header title shown above the event grid.
 - `NEXT_PUBLIC_EMBED_SUBTITLE`: supporting copy shown below the month heading.
 - `NEXT_PUBLIC_CALENDAR_URL`: outbound link target for the "Open Google Calendar" action.
+- `DISCORD_MONTHLY_WEBHOOK_URL`: optional monthly Discord webhook used by `/api/discord/monthly`; falls back to the weekly webhook if unset.
+- `DISCORD_MONTHLY_TEST_WEBHOOK_URL`: optional monthly test webhook used by `/api/discord/monthly?target=test`; falls back to the weekly test webhook if unset.
+- `DISCORD_MONTHLY_POST_SECRET`: optional monthly bearer or `x-calendar-post-secret` value required by the monthly Discord route; falls back to the weekly secret if unset.
+- `MONTHLY_DISCORD_BASE_URL`: optional deployed app base URL used by the monthly local helper scripts; falls back to `WEEKLY_DISCORD_BASE_URL` if unset.
 - `DISCORD_WEEKLY_WEBHOOK_URL`: Discord webhook used by `/api/discord/weekly` to post the weekly image.
 - `DISCORD_WEEKLY_TEST_WEBHOOK_URL`: optional Discord webhook used by `/api/discord/weekly?target=test` for safe test sends.
 - `DISCORD_WEEKLY_POST_SECRET`: optional bearer or `x-calendar-post-secret` value required by the weekly Discord route.
@@ -111,8 +117,10 @@ Other useful settings:
 - `/`: operator preview page with live status cards and the full calendar preview.
 - `/embed`: iframe-safe calendar surface for the main website.
 - `/week`: single-row weekly preview tuned for the Thursday-through-Sunday store week.
+- `/month/image`: PNG rendering of the monthly view in the Discord card style, clipped to current-month days only.
 - `/week/image`: PNG rendering of the weekly view for Discord uploads.
 - `/api/events`: raw event feed with month and week query support.
+- `/api/discord/monthly`: GET preview payload and POST trigger for monthly Discord uploads.
 - `/api/discord/weekly`: GET preview payload and POST trigger for weekly Discord uploads.
 
 Examples:
@@ -124,23 +132,30 @@ Examples:
 
 ## Local trigger scripts
 
-If you want to trigger the deployed weekly Discord flow from your Mac without typing `curl`, use the included npm scripts.
+If you want to trigger the deployed monthly or weekly Discord flow from your Mac without typing `curl`, use the included npm scripts.
 
 Set this locally:
 
 ```bash
+MONTHLY_DISCORD_BASE_URL=https://your-app.up.railway.app
 WEEKLY_DISCORD_BASE_URL=https://your-app.up.railway.app
 ```
 
 If your deployed route is protected, also set:
 
 ```bash
+DISCORD_MONTHLY_POST_SECRET=your-shared-secret
 DISCORD_WEEKLY_POST_SECRET=your-shared-secret
 ```
 
 Examples:
 
 ```bash
+npm run discord:monthly:preview
+npm run discord:monthly:post
+npm run discord:monthly:test
+npm run discord:monthly:preview -- --month=2026-07
+npm run discord:monthly:test -- --month=2026-07
 npm run discord:weekly:preview
 npm run discord:weekly:post
 npm run discord:weekly:test
