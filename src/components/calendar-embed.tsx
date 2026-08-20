@@ -262,6 +262,9 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
   const [selectedCategory, setSelectedCategory] = useState<CalendarCategory | null>(null);
   const [activeEventIndices, setActiveEventIndices] = useState<Record<string, number>>({});
   const [carouselHintMonthKey, setCarouselHintMonthKey] = useState<string | null>(null);
+  const [showPastDays, setShowPastDays] = useState(true);
+  const [hasPastDaysPreference, setHasPastDaysPreference] = useState(false);
+  const [explainedToggleMonthKey, setExplainedToggleMonthKey] = useState<string | null>(null);
   const categories = Array.from(new Set(feed.events.map((event) => event.category)));
   const columnCount = String(feed.month.columns.length);
   const cells = feed.month.weeks.flatMap((week) => week.cells);
@@ -271,6 +274,19 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
       : null;
   const previousLabel = feed.viewMode === "week" ? "Previous week" : "Previous month";
   const nextLabel = feed.viewMode === "week" ? "Next week" : "Next month";
+  const todayDateKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: feed.timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const viewedMonthKey = feed.month.anchorDateKey.slice(0, 7);
+  const currentMonthKey = todayDateKey.slice(0, 7);
+  const isPastMonth = viewedMonthKey < currentMonthKey;
+  const isFutureMonth = viewedMonthKey > currentMonthKey;
+  const isCurrentMonth = viewedMonthKey === currentMonthKey;
+  const isToggleLocked = !isCurrentMonth;
+  const effectiveShowPastDays = isPastMonth ? true : isFutureMonth ? false : showPastDays;
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -314,6 +330,77 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
     );
   }, [embedded, selectedCell]);
 
+  useEffect(() => {
+    const cookieName = "calendar_show_past_days";
+    const query = window.matchMedia("(max-width: 900px)");
+
+    const readCookieValue = () => {
+      const entries = document.cookie
+        .split(";")
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+      const value = entries.find((entry) => entry.startsWith(`${cookieName}=`));
+
+      return value ? value.slice(cookieName.length + 1) : null;
+    };
+
+    const frameId = window.requestAnimationFrame(() => {
+      const cookieValue = readCookieValue();
+      if (cookieValue === "1" || cookieValue === "0") {
+        setShowPastDays(cookieValue === "1");
+        setHasPastDaysPreference(true);
+      } else {
+        setShowPastDays(query.matches);
+      }
+    });
+
+    const onBreakpointChange = (event: MediaQueryListEvent) => {
+      setShowPastDays((current) => (hasPastDaysPreference ? current : event.matches));
+    };
+
+    query.addEventListener("change", onBreakpointChange);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      query.removeEventListener("change", onBreakpointChange);
+    };
+  }, [hasPastDaysPreference]);
+
+  function updateShowPastDays(value: boolean) {
+    setShowPastDays(value);
+    setHasPastDaysPreference(true);
+
+    const maxAgeInSeconds = 60 * 60 * 24 * 365;
+    document.cookie = `calendar_show_past_days=${value ? "1" : "0"}; path=/; max-age=${maxAgeInSeconds}; samesite=lax`;
+  }
+
+  function handlePastDaysToggleClick() {
+    if (isToggleLocked) {
+      setExplainedToggleMonthKey((current) => (current === feed.month.key ? null : feed.month.key));
+      return;
+    }
+
+    updateShowPastDays(!effectiveShowPastDays);
+  }
+
+  const showPastDaysExplanation = explainedToggleMonthKey === feed.month.key;
+
+  function shouldHidePastDate(cell: CalendarGridCell) {
+    if (effectiveShowPastDays || !cell.isCurrentMonth) {
+      return false;
+    }
+
+    if (viewedMonthKey !== currentMonthKey) {
+      return false;
+    }
+
+    return cell.dateKey < todayDateKey;
+  }
+
+  const visibleWeeks = feed.month.weeks.filter((week) =>
+    week.cells.some((cell) => cell.isCurrentMonth && !shouldHidePastDate(cell)),
+  );
+
   function getActiveEventIndex(cell: CalendarGridCell) {
     const carouselKey = getCarouselKey(feed.month.key, cell.key);
     const currentIndex = activeEventIndices[carouselKey] ?? 0;
@@ -346,31 +433,60 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
         className={`calendar-shell ${embedded ? "embedded" : "preview"}`}
         style={{ ["--calendar-columns" as string]: columnCount }}
       >
-        <div className="legend-strip calendar-key" aria-label="Event categories">
-          {categories.map((category) => (
+        <div className="calendar-controls">
+          <div className="legend-strip calendar-key" aria-label="Event categories">
+            {categories.map((category) => (
+              <button
+                aria-label={`Toggle ${CATEGORY_STYLES[category].label} filter`}
+                aria-pressed={selectedCategory === category}
+                className={`legend-pill ${
+                  selectedCategory === category
+                    ? "is-active"
+                    : selectedCategory
+                      ? "is-dimmed"
+                      : ""
+                }`}
+                key={category}
+                onClick={() => {
+                  setSelectedCategory((current) => (current === category ? null : category));
+                }}
+                type="button"
+              >
+                <span
+                  className="legend-dot"
+                  style={{ ["--legend-color" as string]: CATEGORY_STYLES[category].color }}
+                />
+                {CATEGORY_STYLES[category].label}
+              </button>
+            ))}
+          </div>
+
+          <div className="past-days-toggle-wrap">
             <button
-              aria-label={`Toggle ${CATEGORY_STYLES[category].label} filter`}
-              aria-pressed={selectedCategory === category}
-              className={`legend-pill ${
-                selectedCategory === category
-                  ? "is-active"
-                  : selectedCategory
-                    ? "is-dimmed"
-                    : ""
-              }`}
-              key={category}
-              onClick={() => {
-                setSelectedCategory((current) => (current === category ? null : category));
-              }}
+              aria-checked={effectiveShowPastDays}
+              aria-describedby={showPastDaysExplanation ? "past-days-toggle-note" : undefined}
+              aria-disabled={isToggleLocked}
+              aria-label="Show past days"
+              className={`past-days-toggle${isToggleLocked ? " is-disabled" : ""}`}
+              data-checked={effectiveShowPastDays ? "true" : "false"}
+              onClick={handlePastDaysToggleClick}
+              role="switch"
               type="button"
             >
-              <span
-                className="legend-dot"
-                style={{ ["--legend-color" as string]: CATEGORY_STYLES[category].color }}
-              />
-              {CATEGORY_STYLES[category].label}
+              <span aria-hidden="true" className="past-days-toggle-slider">
+                <span className="past-days-toggle-thumb" />
+              </span>
+              <span className="past-days-toggle-text">Show past days</span>
             </button>
-          ))}
+
+            {isToggleLocked && showPastDaysExplanation ? (
+              <p className="past-days-toggle-note" id="past-days-toggle-note">
+                {isPastMonth
+                  ? "Past-day hiding is disabled for previous months."
+                  : "Past-day hiding only applies to the current month."}
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <header className="calendar-banner">
@@ -406,11 +522,15 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
         </div>
 
         <div className="month-grid">
-          {feed.month.weeks.map((week) => (
+          {visibleWeeks.map((week) => (
             <div className="calendar-row" key={week.key}>
               {week.cells.map((cell) => {
                 if (!cell.isCurrentMonth) {
                   return <div aria-hidden="true" className="calendar-gap-cell" key={cell.key} />;
+                }
+
+                if (shouldHidePastDate(cell)) {
+                  return null;
                 }
 
                 const activeEventIndex = getActiveEventIndex(cell);
