@@ -522,9 +522,9 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
         </div>
 
         <div className="month-grid">
-          {visibleWeeks.map((week) => (
+          {visibleWeeks.map((week, weekIndex) => (
             <div className="calendar-row" key={week.key}>
-              {week.cells.map((cell) => {
+              {week.cells.map((cell, cellIndex) => {
                 if (!cell.isCurrentMonth) {
                   return <div aria-hidden="true" className="calendar-gap-cell" key={cell.key} />;
                 }
@@ -553,6 +553,7 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                   hasMultipleEvents &&
                   activeEventIndex === 0 &&
                   carouselHintMonthKey === feed.month.key;
+                const hintDelayMs = showHint ? (weekIndex * 7 + cellIndex) * 70 : 0;
 
                 return (
                   <article
@@ -561,7 +562,10 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                     data-carousel-position={carouselPosition}
                     data-show-carousel-hint={showHint ? "true" : "false"}
                     key={cell.key}
-                    style={getCellStyle(cell)}
+                    style={{
+                      ...getCellStyle(cell),
+                      ["--tile-carousel-hint-delay" as string]: `${hintDelayMs}ms`,
+                    }}
                   >
                     <button
                       aria-haspopup="dialog"
