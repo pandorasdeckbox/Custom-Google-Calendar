@@ -7,8 +7,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/zsh</string>
-    <string>__REPO_DIR__/scripts/run-weekly-discord-post.sh</string>
+    <string>__WRAPPER_PATH__</string>
   </array>
 
   <key>WorkingDirectory</key>
@@ -32,5 +31,11 @@
 
   <key>ProcessType</key>
   <string>Background</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
 </dict>
 </plist>

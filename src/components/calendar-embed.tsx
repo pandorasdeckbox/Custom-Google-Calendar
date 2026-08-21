@@ -530,7 +530,7 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                 }
 
                 if (shouldHidePastDate(cell)) {
-                  return null;
+                  return <div aria-hidden="true" className="calendar-gap-cell calendar-hidden-cell" key={cell.key} />;
                 }
 
                 const activeEventIndex = getActiveEventIndex(cell);
