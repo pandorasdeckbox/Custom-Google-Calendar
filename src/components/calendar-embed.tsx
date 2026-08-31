@@ -400,6 +400,7 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
   const visibleWeeks = feed.month.weeks.filter((week) =>
     week.cells.some((cell) => cell.isCurrentMonth && !shouldHidePastDate(cell)),
   );
+  const isPastDaysEmpty = isCurrentMonth && !effectiveShowPastDays && visibleWeeks.length === 0;
 
   function getActiveEventIndex(cell: CalendarGridCell) {
     const carouselKey = getCarouselKey(feed.month.key, cell.key);
@@ -522,9 +523,17 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
         </div>
 
         <div className="month-grid">
-          {visibleWeeks.map((week, weekIndex) => (
-            <div className="calendar-row" key={week.key}>
-              {week.cells.map((cell, cellIndex) => {
+          {isPastDaysEmpty ? (
+            <div aria-live="polite" className="past-days-empty-state" role="status">
+              <span>Previous days are hidden</span>
+              <span aria-hidden="true" className="past-days-empty-arrow">
+                &#8599;
+              </span>
+            </div>
+          ) : (
+            visibleWeeks.map((week, weekIndex) => (
+              <div className="calendar-row" key={week.key}>
+                {week.cells.map((cell, cellIndex) => {
                 if (!cell.isCurrentMonth) {
                   return <div aria-hidden="true" className="calendar-gap-cell" key={cell.key} />;
                 }
@@ -706,9 +715,10 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                     ) : null}
                   </article>
                 );
-              })}
-            </div>
-          ))}
+                })}
+              </div>
+            ))
+          )}
         </div>
       </section>
 

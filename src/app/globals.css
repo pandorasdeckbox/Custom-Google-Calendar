@@ -314,6 +314,26 @@ html[data-embedded-iframe="true"] .calendar-shell.embedded {
   gap: 0.82rem;
 }
 
+.past-days-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  min-height: 14rem;
+  padding: 1.5rem 1rem 4rem;
+  color: rgba(248, 239, 225, 0.8);
+  font-family: var(--font-card), serif;
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  text-align: right;
+}
+
+.past-days-empty-arrow {
+  color: #ffe0a6;
+  font-family: sans-serif;
+  font-size: 2rem;
+  line-height: 1;
+}
+
 .calendar-row {
   display: grid;
   grid-template-columns: repeat(var(--calendar-columns), minmax(0, 1fr));
@@ -1190,6 +1210,13 @@ html[data-embedded-iframe="true"] .day-modal-backdrop[data-embedded-modal="true"
 
   .weekday-strip {
     display: none;
+  }
+
+  .past-days-empty-state {
+    justify-content: center;
+    min-height: 12rem;
+    padding: 1rem 0 2rem;
+    text-align: center;
   }
 
   .calendar-cell {
