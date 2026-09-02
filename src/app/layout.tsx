@@ -27,8 +27,11 @@ const bodyFont = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "Custom Google Calendar",
+  title: "Events - Pandora's Deck Box",
   description: "Branded Google Calendar embed for Pandora's Deck Box.",
+  icons: {
+    icon: "/pandoras-deck-box-favicon.png",
+  },
 };
 
 export default function RootLayout({
