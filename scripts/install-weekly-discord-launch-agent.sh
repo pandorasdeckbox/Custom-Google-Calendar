@@ -18,8 +18,23 @@ cat > "$wrapper_path" <<EOF
 
 set -euo pipefail
 
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+mode="\${WEEKLY_DISCORD_MODE:-post}"
+
+case "\$mode" in
+	post|preview|test)
+		;;
+	*)
+		echo "Unsupported WEEKLY_DISCORD_MODE: \$mode" >&2
+		exit 1
+		;;
+esac
+
 cd "$repo_dir"
-exec /bin/zsh ./scripts/run-weekly-discord-post.sh
+
+printf '[%s] Running weekly Discord %s\n' "\$(date '+%Y-%m-%d %H:%M:%S')" "\$mode"
+exec npm run "discord:weekly:\$mode"
 EOF
 
 chmod +x "$wrapper_path"

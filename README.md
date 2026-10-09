@@ -195,6 +195,7 @@ The installed job writes logs to:
 ```
 
 The job uses the same local `.env` values as the CLI, so make sure `WEEKLY_DISCORD_BASE_URL` and any optional `DISCORD_WEEKLY_POST_SECRET` are set there before installing it.
+The installed `~/bin` launcher runs the npm task directly from this project.
 
 ## Railway notes
 
