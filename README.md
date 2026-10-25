@@ -103,6 +103,10 @@ Other useful settings:
 - `NEXT_PUBLIC_EMBED_TITLE`: header title shown above the event grid.
 - `NEXT_PUBLIC_EMBED_SUBTITLE`: supporting copy shown below the month heading.
 - `NEXT_PUBLIC_CALENDAR_URL`: outbound link target for the "Open Google Calendar" action.
+- Event descriptions may include machine-readable metadata lines. The
+  calendar feed parses `GAME`, `PRICE`, `CODE`, `CAPACITY`, and `TICKETS`;
+  those lines are removed from the public description while their normalized
+  values remain available in `/api/events`.
 - `DISCORD_MONTHLY_WEBHOOK_URL`: optional monthly Discord webhook used by `/api/discord/monthly`; falls back to the weekly webhook if unset.
 - `DISCORD_MONTHLY_TEST_WEBHOOK_URL`: optional monthly test webhook used by `/api/discord/monthly?target=test`; falls back to the weekly test webhook if unset.
 - `DISCORD_MONTHLY_POST_SECRET`: optional monthly bearer or `x-calendar-post-secret` value required by the monthly Discord route; falls back to the weekly secret if unset.
@@ -122,6 +126,11 @@ Other useful settings:
 - `/api/events`: raw event feed with month and week query support.
 - `/api/discord/monthly`: GET preview payload and POST trigger for monthly Discord uploads.
 - `/api/discord/weekly`: GET preview payload and POST trigger for weekly Discord uploads.
+
+The live `/api/events` response is also the source for the calendar ESL
+automation. Consumers should require `status: "live"` and
+`sourceMode: "google-api"` before writing to a physical label; mock and error
+fallback events are intended only for the calendar UI.
 
 Examples:
 
