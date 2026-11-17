@@ -6,6 +6,9 @@ export type CalendarCategory =
   | "dragon-ball"
   | "gundam"
   | "cyberpunk"
+  | "universus"
+  | "palworld"
+  | "my-little-pony"
   | "marvel"
   | "riftbound"
   | "board-games"
@@ -170,6 +173,9 @@ const CATEGORY_KEYWORDS: Record<CalendarCategory, string[]> = {
   ],
   gundam: ["gundam", "gundam card game", "gunpla"],
   cyberpunk: ["cyberpunk"],
+  universus: ["universus", "uni versus", "uvs"],
+  palworld: ["palworld"],
+  "my-little-pony": ["my little pony", "mlp"],
   marvel: ["marvel", "super heroes", "spider-man"],
   riftbound: ["riftbound", "vendetta", "pre-rift", "skirmish", "chaos"],
   "board-games": [
@@ -195,6 +201,12 @@ const GAME_OVERRIDES: Record<string, CalendarCategory> = {
   fab: "flesh-and-blood",
   gundam: "gundam",
   cyberpunk: "cyberpunk",
+  universus: "universus",
+  "uni versus": "universus",
+  uvs: "universus",
+  palworld: "palworld",
+  "my little pony": "my-little-pony",
+  mlp: "my-little-pony",
   "dragon ball": "dragon-ball",
   dragonball: "dragon-ball",
   "dragon ball masters": "dragon-ball",
@@ -279,14 +291,32 @@ export const CATEGORY_STYLES: Record<
   gundam: {
     label: "Gundam",
     shortLabel: "GDM",
-    color: "#2c9f63",
-    accent: "#c9f0d9",
+    color: "var(--gundam)",
+    accent: "var(--gundam-accent)",
   },
   cyberpunk: {
     label: "Cyberpunk",
     shortLabel: "CP",
     color: "#C7C913",
     accent: "#fffbd0",
+  },
+  universus: {
+    label: "UniVersus",
+    shortLabel: "UVS",
+    color: "#13BDB3",
+    accent: "#b8f5ef",
+  },
+  palworld: {
+    label: "Palworld",
+    shortLabel: "PAL",
+    color: "#7D5FFF",
+    accent: "#e1dbff",
+  },
+  "my-little-pony": {
+    label: "My Little Pony",
+    shortLabel: "MLP",
+    color: "#F28482",
+    accent: "#ffe0df",
   },
   marvel: {
     label: "Marvel",

@@ -26,7 +26,7 @@ This project keeps Google Calendar as the source of truth, but replaces the stoc
 
 - Fetches event data from one or more public Google Calendars on the server.
 - Revalidates every 5 minutes so Railway can serve cached event data without redeploys.
-- Normalizes live Google events into store categories like Magic, Pokemon, Lorcana, Cyberpunk, Marvel, Riftbound, and more.
+- Normalizes live Google events into store categories like Magic, Pokemon, Lorcana, Cyberpunk, UniVersus, Palworld, My Little Pony, Marvel, Riftbound, and more.
 - Renders a compact month grid showing event categories and start times, with a detailed daily schedule organized by play space.
 - Renders a dedicated one-row weekly view for the upcoming Thursday through Sunday store window, including cross-month weeks.
 - Supports month navigation with `?month=YYYY-MM` on both `/` and `/embed`.
