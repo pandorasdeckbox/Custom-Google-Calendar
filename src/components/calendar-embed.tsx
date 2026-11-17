@@ -1,18 +1,8 @@
 "use client";
 
-import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import QRCode from "react-qr-code";
 import { useEffect, useState, type CSSProperties } from "react";
-
-import communityLogo from "@/app/img/community.png";
-import dragonBallLogo from "@/app/img/dragon-ball.png";
-import gundamLogo from "@/app/img/gundam.png";
-import lorcanaLogo from "@/app/img/lorcana.png";
-import magicLogo from "@/app/img/magic.png";
-import onePieceLogo from "@/app/img/one-piece.png";
-import pokemonLogo from "@/app/img/pokemon.png";
-import riftboundLogo from "@/app/img/riftbound.png";
 
 import {
   CATEGORY_STYLES,
@@ -22,6 +12,7 @@ import {
   type CalendarEvent,
   type CalendarFeed,
   type CalendarGridCell,
+  type CalendarPlaySpace,
 } from "@/lib/calendar";
 
 type CalendarEmbedProps = {
@@ -30,20 +21,12 @@ type CalendarEmbedProps = {
   basePath: string;
 };
 
-type CarouselDirection = "previous" | "next";
-
 const EMBED_SCROLL_REQUEST_MESSAGE_TYPE = "custom-google-calendar:scroll-request";
+const STORE_ADDRESS = "Pandora's Deck Box, 195 Whiting St R1, Hingham, MA 02043, USA";
 
-const CATEGORY_LOGOS: Partial<Record<CalendarCategory, StaticImageData>> = {
-  magic: magicLogo,
-  pokemon: pokemonLogo,
-  lorcana: lorcanaLogo,
-  "one-piece": onePieceLogo,
-  "dragon-ball": dragonBallLogo,
-  gundam: gundamLogo,
-  riftbound: riftboundLogo,
-  other: communityLogo,
-};
+function isStoreAddress(location: string) {
+  return location.replace(/\s+/g, " ").trim().toLowerCase() === STORE_ADDRESS.toLowerCase();
+}
 
 function buildCalendarHref(
   basePath: string,
@@ -51,14 +34,6 @@ function buildCalendarHref(
   viewKey: string,
 ) {
   return `${basePath}?${queryParamKey}=${viewKey}`;
-}
-
-function getCarouselKey(monthKey: string, dateKey: string) {
-  return `${monthKey}:${dateKey}`;
-}
-
-function getCategoryLogo(category: CalendarCategory) {
-  return CATEGORY_LOGOS[category] ?? null;
 }
 
 function formatEventPrice(amount: number) {
@@ -172,23 +147,6 @@ function eventMatchesCategory(event: CalendarEvent, category: CalendarCategory |
   return event.category === category;
 }
 
-function getTileSubtitle(event: CalendarEvent | null, isCurrentMonth: boolean, timeZone: string) {
-  if (!event) {
-    return isCurrentMonth ? "Tap to view the day" : "Calendar spillover";
-  }
-
-  if (event.isClosed) {
-    return null;
-  }
-
-  if (event.allDay) {
-    return "All day";
-  }
-
-  const eventTime = getCalendarEventTime(event, timeZone);
-  return `${eventTime.startsAt}`;
-}
-
 function getCellClassName(cell: CalendarGridCell) {
   const classes = ["calendar-cell"];
 
@@ -260,8 +218,6 @@ function getTileFill(cell: CalendarGridCell) {
 export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CalendarCategory | null>(null);
-  const [activeEventIndices, setActiveEventIndices] = useState<Record<string, number>>({});
-  const [carouselHintMonthKey, setCarouselHintMonthKey] = useState<string | null>(null);
   const [showPastDays, setShowPastDays] = useState(true);
   const [hasPastDaysPreference, setHasPastDaysPreference] = useState(false);
   const [explainedToggleMonthKey, setExplainedToggleMonthKey] = useState<string | null>(null);
@@ -272,6 +228,7 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
     selectedDayId?.startsWith(`${feed.month.key}:`)
       ? cells.find((cell) => `${feed.month.key}:${cell.dateKey}` === selectedDayId) || null
       : null;
+  const selectedDayEvents = selectedCell?.events ?? [];
   const previousLabel = feed.viewMode === "week" ? "Previous week" : "Previous month";
   const nextLabel = feed.viewMode === "week" ? "Next week" : "Next month";
   const todayDateKey = new Intl.DateTimeFormat("en-CA", {
@@ -288,15 +245,18 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
   const isToggleLocked = !isCurrentMonth;
   const effectiveShowPastDays = isPastMonth ? true : isFutureMonth ? false : showPastDays;
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setCarouselHintMonthKey(feed.month.key);
-    }, 2000);
+  function getEventsInPlaySpace(playSpace: CalendarPlaySpace | null) {
+    return selectedDayEvents
+      .filter((event) => event.playSpace === playSpace)
+      .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
+  }
 
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [feed.month.key]);
+  const bothSpaceEvents = getEventsInPlaySpace("both");
+  const spaceAEvents = getEventsInPlaySpace("space_a");
+  const spaceBEvents = getEventsInPlaySpace("space_b");
+  const unassignedEvents = getEventsInPlaySpace(null);
+  const showSpaceA = bothSpaceEvents.length === 0 || spaceAEvents.length > 0;
+  const showSpaceB = bothSpaceEvents.length === 0 || spaceBEvents.length > 0;
 
   useEffect(() => {
     if (!selectedCell) return;
@@ -402,30 +362,134 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
   );
   const isPastDaysEmpty = isCurrentMonth && !effectiveShowPastDays && visibleWeeks.length === 0;
 
-  function getActiveEventIndex(cell: CalendarGridCell) {
-    const carouselKey = getCarouselKey(feed.month.key, cell.key);
-    const currentIndex = activeEventIndices[carouselKey] ?? 0;
-    const lastIndex = Math.max(cell.events.length - 1, 0);
-
-    return Math.min(currentIndex, lastIndex);
-  }
-
-  function moveCarousel(cell: CalendarGridCell, direction: CarouselDirection) {
-    const currentIndex = getActiveEventIndex(cell);
-    const nextIndex = direction === "next" ? currentIndex + 1 : currentIndex - 1;
-    const boundedIndex = Math.max(0, Math.min(nextIndex, cell.events.length - 1));
-
-    if (boundedIndex === currentIndex) {
-      return;
+  function renderDayEvents(events: CalendarEvent[], emptyMessage: string) {
+    if (events.length === 0) {
+      return <p className="day-modal-room-empty">{emptyMessage}</p>;
     }
 
-    const carouselKey = getCarouselKey(feed.month.key, cell.key);
+    return events.map((event) => {
+      const theme = CATEGORY_STYLES[event.category];
+      const eventTime = getCalendarEventTime(event, feed.timeZone);
+      const downloadHref = getEventDownloadHref(event);
+      const matchesSelectedCategory = eventMatchesCategory(event, selectedCategory);
+      const hasExplicitPrice = event.price !== null;
+      const showLocation = Boolean(event.location && !isStoreAddress(event.location));
 
-    setCarouselHintMonthKey(null);
-    setActiveEventIndices((current) => ({
-      ...current,
-      [carouselKey]: boundedIndex,
-    }));
+      return (
+        <article
+          className={`day-modal-event${matchesSelectedCategory ? "" : " is-dimmed"}`}
+          key={event.id}
+          style={{ ["--modal-accent" as string]: theme.color }}
+        >
+          <div className="day-modal-event-top">
+            <span className="day-modal-category">{theme.label}</span>
+
+            {event.playSpace === "both" ? (
+              <span className="day-modal-room-badge">BOTH PLAY SPACES · 24 PLAYERS</span>
+            ) : event.playSpace === null ? (
+              <span className="day-modal-room-badge">UNASSIGNED</span>
+            ) : null}
+
+            <div className="day-modal-actions">
+              {hasExplicitPrice ? (
+                <span className="day-modal-badge">
+                  {event.price && event.price > 0 ? formatEventPrice(event.price) : "Free"}
+                </span>
+              ) : null}
+
+              {event.capacity ? (
+                <span className="day-modal-badge">{event.capacity} seats</span>
+              ) : null}
+
+              <a
+                aria-label={`Download ${event.title} as iCal`}
+                className="day-modal-download"
+                download={getEventDownloadName(event)}
+                href={downloadHref}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 3.99a1 1 0 0 1-1.4 0l-4-3.99a1 1 0 0 1 1.4-1.41L11 12.59V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
+                </svg>
+                <span>iCal</span>
+              </a>
+            </div>
+          </div>
+
+          <h3>{event.title}</h3>
+
+          <div className="day-modal-meta">
+            <span className="day-modal-time">
+              {event.allDay
+                ? event.isClosed
+                  ? "Closed"
+                  : "All day"
+                : `${eventTime.startsAt} - ${eventTime.endsAt}`}
+            </span>
+          </div>
+
+          {showLocation ? <p className="day-modal-location">{event.location}</p> : null}
+
+          {event.ticketsUrl || (event.registrationUrl && event.category !== "magic") ? (
+            <div className="day-modal-link-row">
+              {event.registrationUrl && event.category !== "magic" ? (
+                <a
+                  className="day-modal-action-link"
+                  href={event.registrationUrl}
+                  rel="noreferrer"
+                  target="_top"
+                >
+                  Open Sign-In
+                </a>
+              ) : null}
+
+              {event.ticketsUrl ? (
+                <a
+                  className="day-modal-action-link is-primary"
+                  href={event.ticketsUrl}
+                  rel="noreferrer"
+                  target="_top"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M4.5 8.25A2.25 2.25 0 0 1 6.75 6h10.5a2.25 2.25 0 0 1 2.25 2.25v1.6a2 2 0 0 0 0 4.3v1.6A2.25 2.25 0 0 1 17.25 18H6.75a2.25 2.25 0 0 1-2.25-2.25v-1.6a2 2 0 0 0 0-4.3v-1.6Z" />
+                    <path d="M12 8.6v1.4" />
+                    <path d="M12 11.3v1.4" />
+                    <path d="M12 14v1.4" />
+                  </svg>
+                  <span>Buy Ticket</span>
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          {event.description ? (
+            <p className="day-modal-description">
+              {normalizeCalendarDescription(event.description)}
+            </p>
+          ) : null}
+
+          {event.registrationUrl ? (
+            <div className="day-modal-registration">
+              <div className="day-modal-registration-qr" aria-hidden="true">
+                <QRCode
+                  bgColor="transparent"
+                  fgColor="#f8efe1"
+                  size={124}
+                  value={event.registrationUrl}
+                />
+              </div>
+
+              <div className="day-modal-registration-copy">
+                <p className="day-modal-registration-title">Scan to sign in</p>
+                <p className="day-modal-registration-text">{getRegistrationHelperText(event)}</p>
+                {event.category === "magic" && event.registrationCode ? (
+                  <p className="day-modal-code-note">Code: {event.registrationCode}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </article>
+      );
+    });
   }
 
   return (
@@ -531,9 +595,9 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
               </span>
             </div>
           ) : (
-            visibleWeeks.map((week, weekIndex) => (
+            visibleWeeks.map((week) => (
               <div className="calendar-row" key={week.key}>
-                {week.cells.map((cell, cellIndex) => {
+                {week.cells.map((cell) => {
                 if (!cell.isCurrentMonth) {
                   return <div aria-hidden="true" className="calendar-gap-cell" key={cell.key} />;
                 }
@@ -542,177 +606,58 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
                   return <div aria-hidden="true" className="calendar-gap-cell calendar-hidden-cell" key={cell.key} />;
                 }
 
-                const activeEventIndex = getActiveEventIndex(cell);
-                const activeEvent = cell.events[activeEventIndex] ?? cell.primaryEvent;
-                const theme = activeEvent
-                  ? CATEGORY_STYLES[activeEvent.category]
-                  : CATEGORY_STYLES.other;
                 const matchesSelectedCategory = cellMatchesCategory(cell, selectedCategory);
-                const hasMultipleEvents = cell.events.length > 1;
-                const canMovePrevious = activeEventIndex > 0;
-                const canMoveNext = activeEventIndex < cell.events.length - 1;
-                const carouselPosition = hasMultipleEvents
-                  ? canMovePrevious
-                    ? canMoveNext
-                      ? "middle"
-                      : "end"
-                    : "start"
-                  : undefined;
-                const showHint =
-                  hasMultipleEvents &&
-                  activeEventIndex === 0 &&
-                  carouselHintMonthKey === feed.month.key;
-                const hintDelayMs = showHint ? (weekIndex * 7 + cellIndex) * 70 : 0;
+                const isSelected = selectedCell?.dateKey === cell.dateKey;
+                const hasEvents = cell.events.length > 0;
 
                 return (
                   <article
-                    className={`${getCellClassName(cell)}${matchesSelectedCategory ? "" : " is-dimmed"}`}
-                    data-has-carousel={hasMultipleEvents ? "true" : "false"}
-                    data-carousel-position={carouselPosition}
-                    data-show-carousel-hint={showHint ? "true" : "false"}
+                    className={`${getCellClassName(cell)}${matchesSelectedCategory ? "" : " is-dimmed"}${isSelected ? " is-selected" : ""}`}
                     key={cell.key}
-                    style={{
-                      ...getCellStyle(cell),
-                      ["--tile-carousel-hint-delay" as string]: `${hintDelayMs}ms`,
-                    }}
+                    onClick={
+                      hasEvents
+                        ? () => setSelectedDayId(`${feed.month.key}:${cell.dateKey}`)
+                        : undefined
+                    }
+                    style={getCellStyle(cell)}
                   >
                     <button
+                      aria-expanded={isSelected}
                       aria-haspopup="dialog"
+                      aria-label={`View ${formatDayHeading(cell.dateKey)} schedule`}
                       className="tile-button"
                       onClick={(event) => {
                         event.currentTarget.blur();
-                        setSelectedDayId(`${feed.month.key}:${cell.dateKey}`);
                       }}
                       type="button"
                     >
                       <div className="tile-date-row">
                         <span className="tile-day-number">{cell.dayNumber}</span>
-                        <span className={`tile-mark${activeEvent && getCategoryLogo(activeEvent.category) ? " has-logo" : ""}`}>
-                          {activeEvent ? (
-                            getCategoryLogo(activeEvent.category) ? (
-                              <Image
-                                alt={`${theme.label} logo`}
-                                className="tile-mark-image"
-                                sizes="44px"
-                                src={getCategoryLogo(activeEvent.category)!}
-                              />
-                            ) : (
-                              theme.shortLabel
-                            )
-                          ) : (
-                            "OPEN"
-                          )}
-                        </span>
                       </div>
 
-                      {activeEvent?.price && activeEvent.price > 0 ? (
-                        <span aria-label={`Paid event: ${formatEventPrice(activeEvent.price)}`} className="tile-price-indicator">
-                          $
-                        </span>
-                      ) : null}
+                      <div className="month-event-list">
+                        {cell.events.map((event) => {
+                          const eventTheme = CATEGORY_STYLES[event.category];
+                          const eventTime = getCalendarEventTime(event, feed.timeZone);
+                          const timeLabel = event.isClosed
+                            ? "Closed"
+                            : event.allDay
+                              ? "All day"
+                              : eventTime.startsAt;
 
-                      <div className="tile-content tile-carousel-viewport compact-tile-content">
-                        <div
-                          className="tile-carousel-slider"
-                          style={{
-                            ["--tile-carousel-index" as string]: String(activeEventIndex),
-                            ["--tile-carousel-count" as string]: String(Math.max(cell.events.length, 1)),
-                          }}
-                        >
-                          <div className="tile-carousel-track">
-                            {(cell.events.length > 0 ? cell.events : [null]).map((event, index) => {
-                              const eventTheme = event ? CATEGORY_STYLES[event.category] : CATEGORY_STYLES.other;
-                              const eventSubtitle = getTileSubtitle(event, cell.isCurrentMonth, feed.timeZone);
-                              const isTimedEvent = Boolean(event && !event.isClosed && !event.allDay);
-
-                              return (
-                                <div
-                                  aria-hidden={index === activeEventIndex ? undefined : true}
-                                  className="tile-content tile-carousel-panel"
-                                  key={event?.id ?? `${cell.key}-empty`}
-                                >
-                                  <span className="tile-category compact-category">
-                                    {event
-                                      ? event.isClosed
-                                        ? "Store Update"
-                                        : eventTheme.label
-                                      : cell.isCurrentMonth
-                                        ? "Open Slot"
-                                        : "Next Window"}
-                                  </span>
-
-                                  <h2 className={isTimedEvent ? "has-prominent-time" : undefined}>
-                                    {event
-                                      ? event.title
-                                      : cell.isCurrentMonth
-                                        ? "No Featured Event"
-                                        : "Next Month"}
-                                  </h2>
-
-                                  {eventSubtitle ? (
-                                    <p className={isTimedEvent ? "tile-time-subtitle" : undefined}>
-                                      {isTimedEvent ? (
-                                        <>
-                                          <svg
-                                            aria-hidden="true"
-                                            className="tile-time-icon"
-                                            viewBox="0 0 24 24"
-                                            width="12"
-                                            height="12"
-                                          >
-                                            <circle cx="12" cy="12" r="8.5" />
-                                            <path d="M12 7.8v4.7l3.15 2.2" />
-                                          </svg>
-                                          <span>{eventSubtitle}</span>
-                                        </>
-                                      ) : (
-                                        eventSubtitle
-                                      )}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
+                          return (
+                            <span
+                              className={`month-event-indicator${eventMatchesCategory(event, selectedCategory) ? "" : " is-dimmed"}`}
+                              key={event.id}
+                              style={{ ["--month-event-color" as string]: eventTheme.color }}
+                            >
+                              <span className="month-event-category">{eventTheme.label}</span>
+                              <span className="month-event-time">{timeLabel}</span>
+                            </span>
+                          );
+                        })}
                       </div>
-
-                      {cell.overflowCount > 0 ? (
-                        <div className="tile-overflow compact-overflow">
-                          +{cell.overflowCount} more
-                        </div>
-                      ) : null}
                     </button>
-
-                    {hasMultipleEvents ? (
-                      <>
-                        <button
-                          aria-label={`Show previous event for ${cell.dateKey}`}
-                          className="tile-carousel-arrow tile-carousel-arrow-left"
-                          disabled={!canMovePrevious}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            moveCarousel(cell, "previous");
-                          }}
-                          type="button"
-                        >
-                          <span aria-hidden="true">‹</span>
-                        </button>
-
-                        <button
-                          aria-label={`Show next event for ${cell.dateKey}`}
-                          className="tile-carousel-arrow tile-carousel-arrow-right"
-                          disabled={!canMoveNext}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            moveCarousel(cell, "next");
-                          }}
-                          type="button"
-                        >
-                          <span aria-hidden="true">›</span>
-                        </button>
-                      </>
-                    ) : null}
                   </article>
                 );
                 })}
@@ -751,124 +696,73 @@ export function CalendarEmbed({ feed, embedded, basePath }: CalendarEmbedProps) 
               </button>
             </div>
 
-            {selectedCell.events.length === 0 ? (
+            {selectedDayEvents.length === 0 ? (
               <div className="day-modal-empty">
                 <p>This date does not currently have events scheduled in Google Calendar.</p>
               </div>
             ) : (
-              <div className="day-modal-list">
-                {selectedCell.events.map((event) => {
-                  const theme = CATEGORY_STYLES[event.category];
-                  const eventTime = getCalendarEventTime(event, feed.timeZone);
-                  const downloadHref = getEventDownloadHref(event);
-                  const matchesSelectedCategory = eventMatchesCategory(event, selectedCategory);
-                  const hasExplicitPrice = event.price !== null;
-
-                  return (
-                    <article
-                      className={`day-modal-event${matchesSelectedCategory ? "" : " is-dimmed"}`}
-                      key={event.id}
-                      style={{ ["--modal-accent" as string]: theme.color }}
-                    >
-                      <div className="day-modal-event-top">
-                        <span className="day-modal-category">{theme.label}</span>
-
-                        <div className="day-modal-actions">
-                          {hasExplicitPrice ? (
-                            <span className="day-modal-badge">
-                              {event.price && event.price > 0 ? formatEventPrice(event.price) : "Free"}
-                            </span>
-                          ) : null}
-
-                          {event.capacity ? (
-                            <span className="day-modal-badge">{event.capacity} seats</span>
-                          ) : null}
-
-                          <a
-                            aria-label={`Download ${event.title} as iCal`}
-                            className="day-modal-download"
-                            download={getEventDownloadName(event)}
-                            href={downloadHref}
-                          >
-                            <svg aria-hidden="true" viewBox="0 0 24 24">
-                              <path d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 3.99a1 1 0 0 1-1.4 0l-4-3.99a1 1 0 0 1 1.4-1.41L11 12.59V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
-                            </svg>
-                            <span>iCal</span>
-                          </a>
-                        </div>
+              <div className="day-modal-schedule">
+                {bothSpaceEvents.length > 0 ? (
+                  <section
+                    aria-label="Events using both play spaces"
+                    className="day-modal-space day-modal-space-wide"
+                  >
+                    <header className="day-modal-space-header">
+                      <div>
+                        <h3>BOTH PLAY SPACES</h3>
+                        <p>Shared capacity · 24 players</p>
                       </div>
+                    </header>
+                    <div className="day-modal-space-events">
+                      {renderDayEvents(bothSpaceEvents, "No events scheduled in both spaces.")}
+                    </div>
+                  </section>
+                ) : null}
 
-                      <h3>{event.title}</h3>
-
-                      <div className="day-modal-meta">
-                        <span className="day-modal-time">
-                          {event.allDay
-                            ? event.isClosed
-                              ? "Closed"
-                              : "All day"
-                            : `${eventTime.startsAt} - ${eventTime.endsAt}`}
-                        </span>
+                {showSpaceA ? (
+                  <section aria-label="Play Space A events" className="day-modal-space">
+                    <header className="day-modal-space-header">
+                      <div>
+                          <h3>PLAY SPACE A</h3>
+                          <p>Main Play Space · 16 Players</p>
                       </div>
+                    </header>
+                    <div className="day-modal-space-events">
+                      {renderDayEvents(spaceAEvents, "No events scheduled in Space A.")}
+                    </div>
+                  </section>
+                ) : null}
 
-                      {(event.ticketsUrl || (event.registrationUrl && event.category !== "magic")) ? (
-                        <div className="day-modal-link-row">
-                          {event.registrationUrl && event.category !== "magic" ? (
-                            <a
-                              className="day-modal-action-link"
-                              href={event.registrationUrl}
-                              rel="noreferrer"
-                              target="_top"
-                            >
-                              Open Sign-In
-                            </a>
-                          ) : null}
+                {showSpaceB ? (
+                  <section aria-label="Play Space B events" className="day-modal-space">
+                    <header className="day-modal-space-header">
+                      <div>
+                          <h3>PLAY SPACE B</h3>
+                          <p>Secondary Play Space · 8 Players</p>
+                      </div>
+                    </header>
+                    <div className="day-modal-space-events">
+                      {renderDayEvents(spaceBEvents, "No events scheduled in Space B.")}
+                    </div>
+                  </section>
+                ) : null}
 
-                          {event.ticketsUrl ? (
-                            <a
-                              className="day-modal-action-link is-primary"
-                              href={event.ticketsUrl}
-                              rel="noreferrer"
-                              target="_top"
-                            >
-                              <svg aria-hidden="true" viewBox="0 0 24 24">
-                                <path d="M4.5 8.25A2.25 2.25 0 0 1 6.75 6h10.5a2.25 2.25 0 0 1 2.25 2.25v1.6a2 2 0 0 0 0 4.3v1.6A2.25 2.25 0 0 1 17.25 18H6.75a2.25 2.25 0 0 1-2.25-2.25v-1.6a2 2 0 0 0 0-4.3v-1.6Z" />
-                                <path d="M12 8.6v1.4" />
-                                <path d="M12 11.3v1.4" />
-                                <path d="M12 14v1.4" />
-                              </svg>
-                              <span>Buy Ticket</span>
-                            </a>
-                          ) : null}
-                        </div>
-                      ) : null}
-
-                      {event.description ? (
-                        <p className="day-modal-description">{normalizeCalendarDescription(event.description)}</p>
-                      ) : null}
-
-                      {event.registrationUrl ? (
-                        <div className="day-modal-registration">
-                          <div className="day-modal-registration-qr" aria-hidden="true">
-                            <QRCode
-                              bgColor="transparent"
-                              fgColor="#f8efe1"
-                              size={124}
-                              value={event.registrationUrl}
-                            />
-                          </div>
-
-                          <div className="day-modal-registration-copy">
-                            <p className="day-modal-registration-title">Scan to sign in</p>
-                            <p className="day-modal-registration-text">{getRegistrationHelperText(event)}</p>
-                            {event.category === "magic" && event.registrationCode ? (
-                              <p className="day-modal-code-note">Code: {event.registrationCode}</p>
-                            ) : null}
-                          </div>
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
+                {unassignedEvents.length > 0 ? (
+                  <section
+                    aria-label="Events without a play space assignment"
+                    className="day-modal-space day-modal-space-wide"
+                  >
+                    <header className="day-modal-space-header">
+                      <div>
+                        <h3>UNASSIGNED</h3>
+                        <p>Room not specified in Google Calendar</p>
+                      </div>
+                    </header>
+                    <div className="day-modal-space-events">
+                      {renderDayEvents(unassignedEvents, "No unassigned events.")}
+                    </div>
+                  </section>
+                ) : null}
               </div>
             )}
           </section>

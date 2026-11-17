@@ -27,7 +27,7 @@ This project keeps Google Calendar as the source of truth, but replaces the stoc
 - Fetches event data from one or more public Google Calendars on the server.
 - Revalidates every 5 minutes so Railway can serve cached event data without redeploys.
 - Normalizes live Google events into store categories like Magic, Pokemon, Lorcana, Marvel, Riftbound, and more.
-- Renders a month-level event grid tuned to the store's Thursday through Sunday event cadence.
+- Renders a compact month grid showing event categories and start times, with a detailed daily schedule organized by play space.
 - Renders a dedicated one-row weekly view for the upcoming Thursday through Sunday store window, including cross-month weeks.
 - Supports month navigation with `?month=YYYY-MM` on both `/` and `/embed`.
 - Supports week navigation with `?week=YYYY-MM-DD` on `/week` and `/week/image`.
@@ -104,9 +104,18 @@ Other useful settings:
 - `NEXT_PUBLIC_EMBED_SUBTITLE`: supporting copy shown below the month heading.
 - `NEXT_PUBLIC_CALENDAR_URL`: outbound link target for the "Open Google Calendar" action.
 - Event descriptions may include machine-readable metadata lines. The
-  calendar feed parses `GAME`, `PRICE`, `CODE`, `CAPACITY`, and `TICKETS`;
+  calendar feed parses `GAME`, `ROOM`, `PRICE`, `CODE`, `CAPACITY`, and `TICKETS`;
   those lines are removed from the public description while their normalized
-  values remain available in `/api/events`.
+  values remain available in `/api/events`. Set `ROOM: space_a`, `ROOM:
+  space_b`, or `ROOM: both` in each Google Calendar event description to assign
+  its play space. `ROOM: a`, `ROOM: A`, `ROOM: space_a`, `ROOM: b`, `ROOM: B`,
+  `ROOM: space_b`, and `ROOM: both` are accepted and normalized to `space_a`,
+  `space_b`, or `both`. When no valid `ROOM:` override is present, capacity 8
+  defaults to `space_b`; capacity 24 defaults to `both`; capacity 16 and all
+  other or missing capacities default to `space_a`. An explicit `ROOM:` value
+  always takes precedence. Metadata keys are case-insensitive, so `Capacity: 8`
+  is accepted. The Google Calendar `location` field remains reserved for the
+  event's physical venue.
 - `DISCORD_MONTHLY_WEBHOOK_URL`: optional monthly Discord webhook used by `/api/discord/monthly`; falls back to the weekly webhook if unset.
 - `DISCORD_MONTHLY_TEST_WEBHOOK_URL`: optional monthly test webhook used by `/api/discord/monthly?target=test`; falls back to the weekly test webhook if unset.
 - `DISCORD_MONTHLY_POST_SECRET`: optional monthly bearer or `x-calendar-post-secret` value required by the monthly Discord route; falls back to the weekly secret if unset.

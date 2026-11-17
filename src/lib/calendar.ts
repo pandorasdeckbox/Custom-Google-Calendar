@@ -11,6 +11,8 @@ export type CalendarCategory =
   | "flesh-and-blood"
   | "other";
 
+export type CalendarPlaySpace = "space_a" | "space_b" | "both";
+
 type CalendarSource = {
   id: string;
   label?: string;
@@ -56,6 +58,7 @@ export type CalendarEvent = {
   title: string;
   description: string;
   location: string;
+  playSpace: CalendarPlaySpace | null;
   startsAt: string;
   endsAt: string;
   startDayKey: string;
@@ -181,7 +184,7 @@ const CATEGORY_KEYWORDS: Record<CalendarCategory, string[]> = {
 };
 
 const CLOSED_KEYWORDS = ["closed", "no events", "holiday closure", "store closed"];
-const DESCRIPTION_METADATA_PATTERN = /^([A-Z][A-Z0-9 -]*):\s*(.+)$/;
+const DESCRIPTION_METADATA_PATTERN = /^([A-Z][A-Z0-9 -]*):\s*(.*)$/i;
 const GAME_OVERRIDES: Record<string, CalendarCategory> = {
   "board games": "board-games",
   "board game": "board-games",
@@ -531,6 +534,7 @@ function resolveRegistrationUrl(
 type ParsedEventDescription = {
   description: string;
   gameOverride?: CalendarCategory;
+  playSpace: CalendarPlaySpace | null;
   price: number | null;
   capacity: number | null;
   registrationCode: string | null;
@@ -541,6 +545,7 @@ function parseEventDescription(rawDescription: string): ParsedEventDescription {
   const normalizedDescription = normalizeCalendarDescription(rawDescription);
   const visibleLines: string[] = [];
   let gameOverride: CalendarCategory | undefined;
+  let playSpace: CalendarPlaySpace | null = null;
   let price: number | null = null;
   let capacity: number | null = null;
   let registrationCode: string | null = null;
@@ -556,7 +561,7 @@ function parseEventDescription(rawDescription: string): ParsedEventDescription {
     }
 
     const [, rawKey, rawValue] = metadataMatch;
-    const key = rawKey.trim();
+    const key = rawKey.trim().toUpperCase();
     const value = rawValue.trim();
 
     if (!value) {
@@ -566,6 +571,9 @@ function parseEventDescription(rawDescription: string): ParsedEventDescription {
     switch (key) {
       case "GAME":
         gameOverride = resolveGameOverride(value) || gameOverride;
+        break;
+      case "ROOM":
+        playSpace = parseCalendarPlaySpace(value) || playSpace;
         break;
       case "PRICE":
         price = parsePrice(value);
@@ -587,11 +595,32 @@ function parseEventDescription(rawDescription: string): ParsedEventDescription {
   return {
     description: visibleLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
     gameOverride,
+    playSpace:
+      playSpace ??
+      (capacity === 8 ? "space_b" : capacity === 24 ? "both" : "space_a"),
     price: price ?? inferPriceFromDescription(normalizedDescription),
     capacity,
     registrationCode,
     ticketsUrl,
   };
+}
+
+function parseCalendarPlaySpace(value: string): CalendarPlaySpace | null {
+  const normalizedValue = value.trim().toLowerCase();
+
+  if (normalizedValue === "a" || normalizedValue === "space_a" || normalizedValue === "space a") {
+    return "space_a";
+  }
+
+  if (normalizedValue === "b" || normalizedValue === "space_b" || normalizedValue === "space b") {
+    return "space_b";
+  }
+
+  if (normalizedValue === "both") {
+    return "both";
+  }
+
+  return null;
 }
 
 function isGenericOpenPlayTitle(title: string) {
@@ -867,6 +896,7 @@ function normalizeEvent(
     title,
     description,
     location,
+    playSpace: parsedDescription.playSpace,
     startsAt,
     endsAt,
     startDayKey,
@@ -938,6 +968,7 @@ async function fetchSourceEvents(
 function buildMockEvents(timeZone: string): CalendarEvent[] {
   const baseMonthKey = getMonthKeyForDate(new Date(), timeZone);
   const monthStart = getMonthStartKey(baseMonthKey);
+  const firstSaturday = addDays(monthStart, (6 - getWeekday(monthStart) + 7) % 7);
 
   const makeDateKey = (dayOffset: number) => addDays(monthStart, dayOffset);
   const makeTimedIso = (dateKey: string, hour: number, minute: number) => {
@@ -956,6 +987,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
     endMinute: number,
     description: string,
     location: string,
+    playSpace: CalendarPlaySpace | null = null,
   ): CalendarEvent => {
     const inferredCategories = inferCategories(
       title,
@@ -971,6 +1003,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       title,
       description,
       location,
+      playSpace,
       startsAt: makeTimedIso(dateKey, startHour, startMinute),
       endsAt: makeTimedIso(dateKey, endHour, endMinute),
       startDayKey: dateKey,
@@ -1020,6 +1053,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       title,
       description,
       location,
+      playSpace: "space_a",
       startsAt: `${dateKey}T00:00:00.000Z`,
       endsAt: `${dateKey}T23:59:59.999Z`,
       startDayKey: dateKey,
@@ -1058,6 +1092,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       0,
       "Riftbound and One Piece casual tables all evening.",
       "Pandora's Deck Box",
+      "space_a",
     ),
     createTimedEvent(
       "marvel-party",
@@ -1070,6 +1105,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       0,
       "Special play kits, pods, and drop-in multiplayer rounds.",
       "Main event floor",
+      "space_b",
     ),
     createAllDayEvent(
       "holiday-closure",
@@ -1099,6 +1135,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       0,
       "Weekly rounds with store credit payout.",
       "Pandora's Deck Box",
+      "space_a",
     ),
     createTimedEvent(
       "riftbound-skirmish",
@@ -1111,6 +1148,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       0,
       "Casual skirmish pods and learn-to-play support.",
       "Feature table row",
+      "space_b",
     ),
     createAllDayEvent(
       "lorcana-prerelease",
@@ -1124,13 +1162,40 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       "regional-qualifier",
       "Regional Championship Qualifier",
       "magic",
-      makeDateKey(17),
+      firstSaturday,
       11,
       0,
-      19,
+      17,
       0,
       "Competitive REL main event.",
       "Main event floor",
+      "both",
+    ),
+    createTimedEvent(
+      "commander-night",
+      "Casual Commander",
+      "magic",
+      firstSaturday,
+      18,
+      30,
+      21,
+      0,
+      "Weekly multiplayer Commander pods.",
+      "Main event floor",
+      "space_a",
+    ),
+    createTimedEvent(
+      "pokemon-store-tournament",
+      "Pokemon Store Tournament",
+      "pokemon",
+      firstSaturday,
+      18,
+      30,
+      21,
+      0,
+      "A casual evening tournament with prize support.",
+      "Secondary event floor",
+      "space_b",
     ),
     createTimedEvent(
       "chaos-prerelease",
@@ -1143,6 +1208,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       0,
       "Launch-week showcase with promos and bundle add-ons.",
       "Pandora's Deck Box",
+      "space_a",
     ),
     createTimedEvent(
       "vendetta-pre-rift",
@@ -1155,6 +1221,7 @@ function buildMockEvents(timeZone: string): CalendarEvent[] {
       0,
       "Preview event featuring deck clinics and prize promos.",
       "Pandora's Deck Box",
+      "space_b",
     ),
   ];
 }
@@ -1253,8 +1320,6 @@ function buildEventIndex(events: CalendarEvent[]) {
 
   for (const [dateKey, bucket] of index) {
     bucket.sort((left, right) => {
-      if (left.isClosed !== right.isClosed) return left.isClosed ? -1 : 1;
-      if (left.allDay !== right.allDay) return left.allDay ? -1 : 1;
       return Date.parse(left.startsAt) - Date.parse(right.startsAt);
     });
     index.set(dateKey, bucket);
