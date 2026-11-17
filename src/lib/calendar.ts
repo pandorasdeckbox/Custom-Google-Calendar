@@ -5,6 +5,7 @@ export type CalendarCategory =
   | "one-piece"
   | "dragon-ball"
   | "gundam"
+  | "cyberpunk"
   | "marvel"
   | "riftbound"
   | "board-games"
@@ -168,6 +169,7 @@ const CATEGORY_KEYWORDS: Record<CalendarCategory, string[]> = {
     "dbscg",
   ],
   gundam: ["gundam", "gundam card game", "gunpla"],
+  cyberpunk: ["cyberpunk"],
   marvel: ["marvel", "super heroes", "spider-man"],
   riftbound: ["riftbound", "vendetta", "pre-rift", "skirmish", "chaos"],
   "board-games": [
@@ -192,6 +194,7 @@ const GAME_OVERRIDES: Record<string, CalendarCategory> = {
   "flesh & blood": "flesh-and-blood",
   fab: "flesh-and-blood",
   gundam: "gundam",
+  cyberpunk: "cyberpunk",
   "dragon ball": "dragon-ball",
   dragonball: "dragon-ball",
   "dragon ball masters": "dragon-ball",
@@ -278,6 +281,12 @@ export const CATEGORY_STYLES: Record<
     shortLabel: "GDM",
     color: "#2c9f63",
     accent: "#c9f0d9",
+  },
+  cyberpunk: {
+    label: "Cyberpunk",
+    shortLabel: "CP",
+    color: "#C7C913",
+    accent: "#fffbd0",
   },
   marvel: {
     label: "Marvel",

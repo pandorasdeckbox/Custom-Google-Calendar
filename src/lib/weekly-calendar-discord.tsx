@@ -39,6 +39,7 @@ const IMAGE_CATEGORY_COLORS: Record<
   "one-piece": { color: "#3c60e8", accent: "#c8cbff" },
   "dragon-ball": { color: "#d99600", accent: "#ffe7a6" },
   gundam: { color: "#2c9f63", accent: "#c9f0d9" },
+  cyberpunk: { color: "#C7C913", accent: "#fffbd0" },
   marvel: { color: "#8e4c18", accent: "#f2d0ab" },
   riftbound: { color: "#FF8000", accent: "#ffe0b4" },
   "board-games": { color: "#2f8460", accent: "#bcead1" },
