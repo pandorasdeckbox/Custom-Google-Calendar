@@ -140,16 +140,55 @@ function formatDayNumber(dateKey: string) {
   return String(Number.parseInt(dateKey.slice(8, 10), 10));
 }
 
-function getImageCardAccent(cell: CalendarGridCell) {
-  const activeEvent = cell.primaryEvent;
-  if (!activeEvent) return IMAGE_CATEGORY_COLORS.other.color;
-  return IMAGE_CATEGORY_COLORS[activeEvent.category].color;
-}
-
 function getImageCardBorder(cell: CalendarGridCell) {
   const activeEvent = cell.primaryEvent;
   if (!activeEvent) return "rgba(19, 13, 13, 0.56)";
   return IMAGE_CATEGORY_COLORS[activeEvent.category].accent;
+}
+
+function getImageDisplayCategories(cell: CalendarGridCell) {
+  return Array.from(
+    new Set(
+      cell.events.flatMap((event) =>
+        event.displayCategories.length > 0 ? event.displayCategories : [event.category],
+      ),
+    ),
+  );
+}
+
+function getImageTileFill(cell: CalendarGridCell) {
+  const displayCategories = getImageDisplayCategories(cell);
+
+  if (displayCategories.length <= 1) {
+    return cell.primaryEvent
+      ? IMAGE_CATEGORY_COLORS[cell.primaryEvent.category].color
+      : IMAGE_CATEGORY_COLORS.other.color;
+  }
+
+  const eventColors = displayCategories.map(
+    (category) => IMAGE_CATEGORY_COLORS[category].color,
+  );
+  const step = 100 / eventColors.length;
+  const blendWidth = Math.min(18, step * 0.6);
+  const gradientStops: string[] = [`${eventColors[0]} 0%`];
+
+  eventColors.forEach((color, index) => {
+    const segmentEnd = (index + 1) * step;
+
+    if (index === eventColors.length - 1) {
+      gradientStops.push(`${color} 100%`);
+      return;
+    }
+
+    const transitionStart = segmentEnd - blendWidth / 2;
+    const transitionEnd = segmentEnd + blendWidth / 2;
+    const nextColor = eventColors[index + 1];
+
+    gradientStops.push(`${color} ${transitionStart}%`);
+    gradientStops.push(`${nextColor} ${transitionEnd}%`);
+  });
+
+  return `linear-gradient(102deg, ${gradientStops.join(", ")})`;
 }
 
 function getImageEventMeta(event: CalendarEvent, timeZone: string) {
@@ -193,7 +232,7 @@ function getCardBodyBackgroundStyle(cell: CalendarGridCell) {
   }
 
   return {
-    background: getImageCardAccent(cell),
+    background: getImageTileFill(cell),
   };
 }
 
@@ -347,7 +386,9 @@ function renderDiscordEventCards(
               background: eventHasCard
                 ? eventIsClosed
                   ? "rgba(248, 246, 242, 0.82)"
-                  : "rgba(17, 12, 12, 0.14)"
+                  : event
+                    ? IMAGE_CATEGORY_COLORS[event.category].color
+                    : "rgba(17, 12, 12, 0.14)"
                 : "transparent",
             }}
           >
