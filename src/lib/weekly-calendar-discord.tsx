@@ -358,7 +358,7 @@ function renderDiscordEventCards(
         bottom: usesStackedCards ? STACKED_EVENT_OUTER_PADDING : BODY_EDGE_PADDING,
         display: "flex",
         flexDirection: "column",
-        justifyContent: "flex-end",
+        justifyContent: "flex-start",
         color: getCardBodyTextColor(cell),
         gap: EVENT_STACK_GAP,
       }}
@@ -380,9 +380,15 @@ function renderDiscordEventCards(
               flexDirection: "column",
               justifyContent: "flex-start",
               position: "relative",
+              boxSizing: "border-box",
               ...(eventHasCard ? { minHeight: estimateStackedEventCardHeight(event) } : {}),
               padding: eventHasCard ? "14px 16px 14px" : "0px",
               borderRadius: eventHasCard ? 20 : 0,
+              border: eventHasCard
+                ? eventIsClosed
+                  ? "3px solid rgba(78, 63, 57, 0.22)"
+                  : "3px solid rgba(255, 255, 255, 0.78)"
+                : "0 solid transparent",
               background: eventHasCard
                 ? eventIsClosed
                   ? "rgba(248, 246, 242, 0.82)"
