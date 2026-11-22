@@ -399,7 +399,11 @@ html[data-embedded-iframe="true"] .calendar-shell.embedded {
 
 .calendar-cell.is-today {
   transform: translateY(-2px);
-  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 22px 56px rgba(0, 0, 0, 0.35),
+    0 0 18px rgba(228, 52, 52, 0.2),
+    inset 0 0 0 5px rgba(228, 52, 52, 0.34);
+  animation: today-card-pulse 2.2s ease-in-out infinite;
 }
 
 .calendar-cell.is-spillover {
@@ -483,39 +487,25 @@ html[data-embedded-iframe="true"] .calendar-shell.embedded {
   padding-right: 0.62rem;
 }
 
-.calendar-cell.is-today .tile-button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  border-radius: 28px;
-  border: 5px solid rgba(228, 52, 52, 0.34);
-  box-shadow:
-    0 0 18px rgba(228, 52, 52, 0.2),
-    inset 0 0 16px rgba(255, 92, 92, 0.12);
-  pointer-events: none;
-  animation: today-border-pulse 2.2s ease-in-out infinite;
-}
-
 .tile-button > * {
   position: relative;
   z-index: 3;
 }
 
-@keyframes today-border-pulse {
+@keyframes today-card-pulse {
   0%,
   100% {
-    border-color: rgba(228, 52, 52, 0.26);
     box-shadow:
+      0 22px 56px rgba(0, 0, 0, 0.35),
       0 0 14px rgba(228, 52, 52, 0.14),
-      inset 0 0 12px rgba(255, 92, 92, 0.1);
+      inset 0 0 0 5px rgba(228, 52, 52, 0.26);
   }
 
   50% {
-    border-color: rgba(255, 92, 92, 0.74);
     box-shadow:
+      0 22px 56px rgba(0, 0, 0, 0.35),
       0 0 34px rgba(255, 78, 78, 0.32),
-      inset 0 0 20px rgba(255, 122, 122, 0.16);
+      inset 0 0 0 5px rgba(255, 92, 92, 0.74);
   }
 }
 
