@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 
 const EMBED_HEIGHT_MESSAGE_TYPE = "custom-google-calendar:height";
+const EMBEDDED_MODAL_SELECTOR = '.day-modal-backdrop[data-embedded-modal="true"] .day-modal';
+const EMBEDDED_MODAL_BOTTOM_PADDING = 16;
 
 function getContentHeight() {
   const contentRoot = document.querySelector<HTMLElement>("[data-embed-height-root]");
@@ -11,13 +13,21 @@ function getContentHeight() {
     return 0;
   }
 
-  return Math.ceil(
-    Math.max(
-      contentRoot.scrollHeight,
-      contentRoot.offsetHeight,
-      contentRoot.getBoundingClientRect().height,
-    ),
+  const contentRootHeight = Math.max(
+    contentRoot.scrollHeight,
+    contentRoot.offsetHeight,
+    contentRoot.getBoundingClientRect().height,
   );
+  const modal = contentRoot.querySelector<HTMLElement>(EMBEDDED_MODAL_SELECTOR);
+
+  if (!modal) {
+    return Math.ceil(contentRootHeight);
+  }
+
+  const modalBottom =
+    modal.getBoundingClientRect().bottom + window.scrollY + EMBEDDED_MODAL_BOTTOM_PADDING;
+
+  return Math.ceil(Math.max(contentRootHeight, modalBottom));
 }
 
 export function EmbedHeightReporter() {
@@ -70,7 +80,29 @@ export function EmbedHeightReporter() {
 
     resizeObserver.observe(contentRoot);
 
+    let observedModal: HTMLElement | null = null;
+    const updateObservedModal = () => {
+      const modal = contentRoot.querySelector<HTMLElement>(EMBEDDED_MODAL_SELECTOR);
+
+      if (modal === observedModal) {
+        return;
+      }
+
+      if (observedModal) {
+        resizeObserver.unobserve(observedModal);
+      }
+
+      observedModal = modal;
+
+      if (observedModal) {
+        resizeObserver.observe(observedModal);
+      }
+    };
+
+    updateObservedModal();
+
     const mutationObserver = new MutationObserver(() => {
+      updateObservedModal();
       schedulePostHeight();
     });
 

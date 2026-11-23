@@ -892,6 +892,10 @@ html[data-embedded-iframe="true"] .day-modal-backdrop[data-embedded-modal="true"
   padding: 1.15rem;
 }
 
+html[data-embedded-iframe="true"] .day-modal-backdrop[data-embedded-modal="true"] .day-modal {
+  max-height: 1100px;
+}
+
 .day-modal-header {
   display: flex;
   align-items: flex-start;
